@@ -1,51 +1,63 @@
 // Paleta de colores de la aplicación Credit Tracker
-// Tema profesional azul/verde financiero
+// Tema premium estilo financiero de lujo: dorado, beige, blanco cálido, champagne
 
 export const Colors = {
-  // Colores primarios
-  primary: '#1565C0',        // Azul oscuro principal
-  primaryLight: '#1E88E5',   // Azul claro
-  primaryDark: '#0D47A1',    // Azul muy oscuro
+  // Primarios premium (dorado/champagne)
+  primary: '#B8974A',           // Dorado premium
+  primaryLight: '#D4AF6A',      // Dorado claro
+  primaryDark: '#8B6914',       // Dorado oscuro
+  primaryGlow: '#F0D080',       // Brillo dorado
 
-  // Colores secundarios (verde financiero)
-  secondary: '#2E7D32',      // Verde oscuro
-  secondaryLight: '#43A047', // Verde claro
-  secondaryDark: '#1B5E20',  // Verde muy oscuro
+  // Secundario (carbón/grafito elegante)
+  secondary: '#2C2C2E',         // Casi negro premium
+  secondaryLight: '#48484A',    // Gris oscuro
+  secondaryDark: '#1C1C1E',     // Negro profundo
 
-  // Colores de acento
-  accent: '#00ACC1',         // Cian/Turquesa
+  // Acento
+  accent: '#C9A96E',            // Bronce cálido
 
-  // Colores de estado
-  success: '#388E3C',        // Verde éxito
-  warning: '#F57C00',        // Naranja advertencia
-  error: '#C62828',          // Rojo error
-  info: '#0277BD',           // Azul información
+  // Estados
+  success: '#4A7C59',           // Verde oliva suave
+  warning: '#C17D3C',           // Ámbar cálido
+  error: '#9B3A3A',             // Rojo vino
+  info: '#4A6B8A',              // Azul pizarra
 
-  // Neutros
-  white: '#FFFFFF',
-  black: '#000000',
-  background: '#F5F7FA',     // Fondo gris muy claro
-  surface: '#FFFFFF',        // Superficie de tarjetas
-  border: '#E0E0E0',         // Bordes
-  divider: '#EEEEEE',        // Divisores
+  // Fondos premium
+  background: '#F8F5F0',        // Blanco cálido / beige muy claro
+  surface: '#FFFFFF',           // Blanco puro
+  surfaceAlt: '#F5EFE6',        // Beige cálido para tarjetas
+  surfaceCard: '#FDFAF6',       // Beige muy suave
+
+  // Bordes y divisores
+  border: '#E8DFD0',            // Beige/arena
+  divider: '#F0E8DC',           // Divisor suave beige
+  borderGold: '#D4AF6A',        // Borde dorado
 
   // Textos
-  textPrimary: '#212121',    // Texto principal oscuro
-  textSecondary: '#757575',  // Texto secundario gris
-  textDisabled: '#BDBDBD',   // Texto deshabilitado
-  textOnPrimary: '#FFFFFF',  // Texto sobre fondo primario
+  white: '#FFFFFF',
+  black: '#000000',
+  textPrimary: '#1A1A1A',       // Casi negro elegante
+  textSecondary: '#6B5E4E',     // Marrón cálido
+  textDisabled: '#B8A898',      // Beige grisáceo
+  textOnPrimary: '#FFFFFF',
+  textGold: '#B8974A',          // Texto dorado
 
-  // Tarjetas de crédito (gradientes simulados con colores)
-  cardBlue: '#1565C0',
-  cardGreen: '#2E7D32',
-  cardPurple: '#6A1B9A',
-  cardOrange: '#E65100',
-  cardGold: '#F9A825',
+  // Tarjetas de crédito premium
+  cardGold: '#8B6914',
+  cardOnyx: '#2C2C2E',
+  cardRose: '#8B4A5A',
+  cardNavy: '#1A2E4A',
+  cardForest: '#2A4A3A',
+  cardBurgundy: '#5A1A2A',
 
-  // Cuentas bancarias
-  bankBlue: '#0277BD',
-  bankGreen: '#00695C',
-  bankGray: '#455A64',
+  // Aliases para compatibilidad con código existente
+  cardBlue: '#1A2E4A',
+  cardGreen: '#2A4A3A',
+  cardPurple: '#5A3A7A',
+  cardOrange: '#C17D3C',
+  bankBlue: '#4A6B8A',
+  bankGreen: '#4A7C59',
+  bankGray: '#6B5E4E',
 };
 
 // Tipografías

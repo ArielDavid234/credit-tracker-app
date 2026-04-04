@@ -1,7 +1,8 @@
 // Pantalla de Cuentas Bancarias
 // Lista todas las cuentas bancarias conectadas con sus saldos
+// Conectada a Firebase Firestore para datos reales
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +15,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
 import BankAccountItem from '../components/BankAccountItem';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { getCurrentUser } from '../services/authService';
+import { getBankAccounts } from '../services/accountService';
 import { mockBankAccounts } from '../constants/mockData';
 
 // Formatear moneda en USD
@@ -25,27 +28,50 @@ const formatCurrency = (amount) => {
 };
 
 const BankAccountsScreen = ({ navigation }) => {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [accounts, setAccounts] = useState(mockBankAccounts);
+  const [accounts, setAccounts] = useState([]);
 
-  // Separar por tipo de cuenta
-  const checkingAccounts = accounts.filter(a => a.type === 'checking');
-  const savingsAccounts = accounts.filter(a => a.type === 'savings');
+  // Cargar cuentas desde Firebase al montar
+  useEffect(() => {
+    loadAccounts();
+  }, []);
 
-  // Calcular totales
-  const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
-  const totalChecking = checkingAccounts.reduce((sum, a) => sum + a.balance, 0);
-  const totalSavings = savingsAccounts.reduce((sum, a) => sum + a.balance, 0);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
+  const loadAccounts = async () => {
+    try {
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        const data = await getBankAccounts(currentUser.uid);
+        // Usar mock data como fallback si no hay datos en Firebase
+        setAccounts(data.length > 0 ? data : mockBankAccounts);
+      } else {
+        setAccounts(mockBankAccounts);
+      }
+    } catch (error) {
+      console.error('Error cargando cuentas:', error);
+      setAccounts(mockBankAccounts);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
+
+  // Actualizar al tirar hacia abajo
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadAccounts();
+  }, []);
 
   if (loading) {
     return <LoadingSpinner fullScreen message="Cargando cuentas..." />;
   }
+
+  // Calcular totales y separar por tipo
+  const checkingAccounts = accounts.filter(a => a.type === 'checking');
+  const savingsAccounts = accounts.filter(a => a.type === 'savings');
+  const totalBalance = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
+  const totalChecking = checkingAccounts.reduce((sum, a) => sum + (a.balance || 0), 0);
+  const totalSavings = savingsAccounts.reduce((sum, a) => sum + (a.balance || 0), 0);
 
   return (
     <View style={styles.container}>

@@ -37,24 +37,30 @@ export const getTransactions = async (userId, options = {}) => {
   }
 };
 
-// Guardar transacciones obtenidas de Plaid en Firestore
+// Guardar transacciones obtenidas de Plaid o agregadas manualmente en Firestore
 export const saveTransactions = async (userId, transactions) => {
   try {
     const txRef = collection(db, 'users', userId, 'transactions');
     const batch = [];
 
     for (const transaction of transactions) {
+      // Soporte para transacciones manuales (sin plaidTransactionId)
+      const isManual = transaction.manual === true;
+      const amount = isManual
+        ? (transaction.amount > 0 ? -transaction.amount : transaction.amount)
+        : -transaction.amount; // Plaid usa positivo para débitos
+
       batch.push(addDoc(txRef, {
-        plaidTransactionId: transaction.transaction_id,
-        accountId: transaction.account_id,
+        plaidTransactionId: isManual ? null : transaction.transaction_id,
+        accountId: transaction.account_id || 'manual',
         description: transaction.name,
-        amount: -transaction.amount, // Plaid usa positivo para débitos
+        amount,
         date: transaction.date,
         category: transaction.category?.[0] || 'Sin categoría',
         merchant: transaction.merchant_name || transaction.name,
         status: 'completada',
-        // Después de negar el monto de Plaid: positivo = crédito (ingreso), negativo = débito (gasto)
-        type: transaction.amount > 0 ? 'credito' : 'debito',
+        type: amount > 0 ? 'credito' : 'debito',
+        manual: isManual,
         createdAt: serverTimestamp(),
       }));
     }

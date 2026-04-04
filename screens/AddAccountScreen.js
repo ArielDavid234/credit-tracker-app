@@ -1,6 +1,6 @@
 // Pantalla para Agregar Nueva Cuenta o Tarjeta
 // Integra con Plaid para conectar cuentas bancarias reales
-// Incluye opción de agregar cuentas manualmente
+// Incluye opción de agregar cuentas manualmente y agregar transacciones
 
 import React, { useState } from 'react';
 import {
@@ -15,6 +15,9 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { getCurrentUser } from '../services/authService';
+import { addCreditCard, addBankAccount } from '../services/accountService';
+import { saveTransactions } from '../services/transactionService';
 
 // Opciones de tipo de cuenta
 const accountTypes = [
@@ -38,9 +41,8 @@ const popularBanks = [
 const AddAccountScreen = ({ navigation }) => {
   const [selectedType, setSelectedType] = useState('checking');
   const [loading, setLoading] = useState(false);
-  const [useManual, setUseManual] = useState(false);
 
-  // Campos del formulario manual
+  // Campos del formulario de cuenta/tarjeta
   const [bankName, setBankName] = useState('');
   const [accountName, setAccountName] = useState('');
   const [lastFour, setLastFour] = useState('');
@@ -48,11 +50,24 @@ const AddAccountScreen = ({ navigation }) => {
   const [creditLimit, setCreditLimit] = useState('');
   const [dueDate, setDueDate] = useState('');
 
+  // Campos para transacción manual
+  const [txType, setTxType] = useState('gasto'); // 'gasto' o 'ingreso'
+  const [txDescription, setTxDescription] = useState('');
+  const [txAmount, setTxAmount] = useState('');
+  const [txCategory, setTxCategory] = useState('Otro');
+  const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
+  const [txAccount, setTxAccount] = useState('');
+
+  // Categorías disponibles para transacciones manuales
+  const transactionCategories = [
+    'Supermercado', 'Restaurantes', 'Gasolina', 'Entretenimiento',
+    'Compras', 'Salud', 'Transporte', 'Servicios', 'Transferencia',
+    'Ingresos', 'Deuda', 'Otro',
+  ];
+
   // Simular conexión con Plaid (en producción, abrir el Plaid Link)
   const handlePlaidConnect = async () => {
     setLoading(true);
-    // Aquí iría la integración real con Plaid Link
-    // Por ahora simulamos con un timeout
     setTimeout(() => {
       setLoading(false);
       Alert.alert(
@@ -68,28 +83,128 @@ const AddAccountScreen = ({ navigation }) => {
     }, 1500);
   };
 
-  // Guardar cuenta manual
-  const handleSaveManual = () => {
+  // Guardar cuenta o tarjeta en Firebase
+  const handleSaveManual = async () => {
     if (!bankName || !accountName || !lastFour || !balance) {
       Alert.alert('Error', 'Por favor completa todos los campos requeridos.');
       return;
     }
-
     if (lastFour.length !== 4) {
       Alert.alert('Error', 'Los últimos 4 dígitos deben ser exactamente 4 números.');
       return;
     }
 
-    // En producción, aquí se guardaría en Firebase
-    Alert.alert(
-      'Cuenta Agregada',
-      `La cuenta "${accountName}" ha sido agregada exitosamente.`,
-      [{ text: 'OK', onPress: () => navigation.goBack() }]
-    );
+    try {
+      setLoading(true);
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        Alert.alert('Error', 'No hay sesión activa.');
+        return;
+      }
+
+      if (selectedType === 'credit') {
+        // Guardar tarjeta de crédito en Firebase
+        await addCreditCard(currentUser.uid, {
+          name: accountName.trim(),
+          bank: bankName.trim(),
+          lastFour: lastFour.trim(),
+          balance: parseFloat(balance) || 0,
+          creditLimit: parseFloat(creditLimit) || 0,
+          availableCredit: (parseFloat(creditLimit) || 0) - (parseFloat(balance) || 0),
+          dueDate: dueDate.trim() || null,
+          color: Colors.cardGold,
+          network: 'Visa',
+        });
+      } else {
+        // Guardar cuenta bancaria en Firebase
+        await addBankAccount(currentUser.uid, {
+          name: accountName.trim(),
+          bank: bankName.trim(),
+          type: selectedType,
+          lastFour: lastFour.trim(),
+          balance: parseFloat(balance) || 0,
+          availableBalance: parseFloat(balance) || 0,
+          color: Colors.bankBlue,
+        });
+      }
+
+      Alert.alert(
+        '¡Cuenta Agregada!',
+        `La cuenta "${accountName}" fue guardada exitosamente.`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } catch (error) {
+      console.error('Error guardando cuenta:', error);
+      Alert.alert('Error', 'No se pudo guardar la cuenta. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Guardar transacción manual en Firebase
+  const handleSaveTransaction = async () => {
+    if (!txDescription.trim()) {
+      Alert.alert('Campo requerido', 'Por favor ingresa una descripción.');
+      return;
+    }
+    if (!txAmount || isNaN(parseFloat(txAmount))) {
+      Alert.alert('Campo requerido', 'Por favor ingresa un monto válido.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        Alert.alert('Error', 'No hay sesión activa.');
+        return;
+      }
+
+      // El monto es negativo para gastos, positivo para ingresos
+      const amount = txType === 'gasto'
+        ? -Math.abs(parseFloat(txAmount))
+        : Math.abs(parseFloat(txAmount));
+
+      // Guardar como array de una transacción usando saveTransactions
+      await saveTransactions(currentUser.uid, [{
+        transaction_id: null,        // Sin ID de Plaid (manual)
+        account_id: txAccount.trim() || 'manual',
+        name: txDescription.trim(),
+        amount: txType === 'gasto' ? Math.abs(parseFloat(txAmount)) : -Math.abs(parseFloat(txAmount)),
+        date: txDate,
+        category: [txCategory],
+        merchant_name: txDescription.trim(),
+        manual: true,
+      }]);
+
+      Alert.alert(
+        '¡Transacción Guardada!',
+        `La transacción "${txDescription}" fue registrada exitosamente.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Limpiar formulario de transacción
+              setTxDescription('');
+              setTxAmount('');
+              setTxCategory('Otro');
+              setTxDate(new Date().toISOString().split('T')[0]);
+              setTxAccount('');
+              setTxType('gasto');
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error guardando transacción:', error);
+      Alert.alert('Error', 'No se pudo guardar la transacción. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
-    return <LoadingSpinner fullScreen message="Conectando con Plaid..." />;
+    return <LoadingSpinner fullScreen message="Guardando..." />;
   }
 
   return (
@@ -241,6 +356,115 @@ const AddAccountScreen = ({ navigation }) => {
         <TouchableOpacity style={styles.saveButton} onPress={handleSaveManual}>
           <MaterialCommunityIcons name="content-save" size={20} color={Colors.white} />
           <Text style={styles.saveButtonText}>Guardar Cuenta</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Divisor para transacciones */}
+      <View style={styles.divider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>o agrega una transacción</Text>
+        <View style={styles.dividerLine} />
+      </View>
+
+      {/* Sección: Agregar Transacción Manual */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Agregar Transacción Manual</Text>
+        <Text style={styles.sectionSubtitle}>Registra ingresos o gastos directamente</Text>
+
+        {/* Selector tipo: Gasto / Ingreso */}
+        <Text style={styles.fieldLabel}>Tipo</Text>
+        <View style={styles.typeSelector}>
+          <TouchableOpacity
+            style={[styles.typeOption, txType === 'gasto' && styles.typeOptionGasto]}
+            onPress={() => setTxType('gasto')}
+          >
+            <MaterialCommunityIcons
+              name="arrow-up-circle"
+              size={22}
+              color={txType === 'gasto' ? Colors.white : Colors.error}
+            />
+            <Text style={[styles.typeOptionText, txType === 'gasto' && styles.typeOptionTextSelected]}>
+              Gasto
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.typeOption, txType === 'ingreso' && styles.typeOptionIngreso]}
+            onPress={() => setTxType('ingreso')}
+          >
+            <MaterialCommunityIcons
+              name="arrow-down-circle"
+              size={22}
+              color={txType === 'ingreso' ? Colors.white : Colors.success}
+            />
+            <Text style={[styles.typeOptionText, txType === 'ingreso' && styles.typeOptionTextSelected]}>
+              Ingreso
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Descripción */}
+        <Text style={styles.fieldLabel}>Descripción *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="ej. Walmart, Nómina, Netflix..."
+          placeholderTextColor={Colors.textDisabled}
+          value={txDescription}
+          onChangeText={setTxDescription}
+        />
+
+        {/* Monto */}
+        <Text style={styles.fieldLabel}>Monto *</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="0.00"
+          placeholderTextColor={Colors.textDisabled}
+          value={txAmount}
+          onChangeText={setTxAmount}
+          keyboardType="decimal-pad"
+        />
+
+        {/* Categoría */}
+        <Text style={styles.fieldLabel}>Categoría</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Spacing.sm }}>
+          <View style={styles.banksRow}>
+            {transactionCategories.map((cat) => (
+              <TouchableOpacity
+                key={cat}
+                style={[styles.bankChip, txCategory === cat && styles.categoryChipSelected]}
+                onPress={() => setTxCategory(cat)}
+              >
+                <Text style={[styles.bankChipText, txCategory === cat && { color: Colors.white }]}>
+                  {cat}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Fecha */}
+        <Text style={styles.fieldLabel}>Fecha (AAAA-MM-DD)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="2024-02-15"
+          placeholderTextColor={Colors.textDisabled}
+          value={txDate}
+          onChangeText={setTxDate}
+        />
+
+        {/* Cuenta / Tarjeta asociada */}
+        <Text style={styles.fieldLabel}>Cuenta / Tarjeta (opcional)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="ej. Chase Checking, Visa ...1234"
+          placeholderTextColor={Colors.textDisabled}
+          value={txAccount}
+          onChangeText={setTxAccount}
+        />
+
+        {/* Botón guardar transacción */}
+        <TouchableOpacity style={styles.saveTxButton} onPress={handleSaveTransaction}>
+          <MaterialCommunityIcons name="plus-circle" size={20} color={Colors.white} />
+          <Text style={styles.saveButtonText}>Guardar Transacción</Text>
         </TouchableOpacity>
       </View>
 
@@ -413,10 +637,39 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 5,
   },
+  saveTxButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.lg,
+    gap: Spacing.sm,
+    shadowColor: Colors.primaryDark,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
   saveButtonText: {
     color: Colors.white,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  // Estilos para el selector de tipo de transacción
+  typeOptionGasto: {
+    backgroundColor: Colors.error,
+    borderColor: Colors.error,
+  },
+  typeOptionIngreso: {
+    backgroundColor: Colors.success,
+    borderColor: Colors.success,
+  },
+  // Chip de categoría seleccionada
+  categoryChipSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
 });
 
