@@ -225,9 +225,9 @@ const DebtsScreen = ({ navigation }) => {
                         <Text style={styles.dueDateText}>Próx. pago: {debt.dueDate}</Text>
                       </View>
                     )}
-                    {debt.notes ? (
+                    {debt.notes && (
                       <Text style={styles.debtNotes} numberOfLines={1}>{debt.notes}</Text>
-                    ) : null}
+                    )}
                   </View>
                 ) : null}
               </View>

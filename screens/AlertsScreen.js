@@ -127,9 +127,11 @@ const AlertsScreen = () => {
         const savedIds = new Set(savedAlerts.map((a) => a.id));
         const newAutoAlerts = autoAlerts.filter((a) => !savedIds.has(a.id));
 
-        // Guardar nuevas alertas automáticas en Firestore
+        // Guardar nuevas alertas automáticas en Firestore (loguea errores sin interrumpir)
         for (const alert of newAutoAlerts) {
-          await addDoc(alertsRef, { ...alert, createdAt: serverTimestamp() }).catch(() => {});
+          await addDoc(alertsRef, { ...alert, createdAt: serverTimestamp() }).catch((err) => {
+            console.warn('No se pudo guardar alerta automática:', err?.code || err?.message);
+          });
         }
 
         const allAlerts = [...savedAlerts, ...newAutoAlerts];

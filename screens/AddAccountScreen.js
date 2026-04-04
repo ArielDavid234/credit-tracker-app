@@ -160,17 +160,15 @@ const AddAccountScreen = ({ navigation }) => {
         return;
       }
 
-      // El monto es negativo para gastos, positivo para ingresos
-      const amount = txType === 'gasto'
-        ? -Math.abs(parseFloat(txAmount))
-        : Math.abs(parseFloat(txAmount));
-
-      // Guardar como array de una transacción usando saveTransactions
+      // Guardar como array de una transacción usando saveTransactions.
+      // Para manual: pasamos el monto ya con el signo correcto para almacenamiento
+      // (negativo = gasto, positivo = ingreso).
       await saveTransactions(currentUser.uid, [{
         transaction_id: null,        // Sin ID de Plaid (manual)
         account_id: txAccount.trim() || 'manual',
         name: txDescription.trim(),
-        amount: txType === 'gasto' ? Math.abs(parseFloat(txAmount)) : -Math.abs(parseFloat(txAmount)),
+        // Negativo para gastos, positivo para ingresos (convención de almacenamiento)
+        amount: txType === 'gasto' ? -Math.abs(parseFloat(txAmount)) : Math.abs(parseFloat(txAmount)),
         date: txDate,
         category: [txCategory],
         merchant_name: txDescription.trim(),

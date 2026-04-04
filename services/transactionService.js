@@ -44,11 +44,14 @@ export const saveTransactions = async (userId, transactions) => {
     const batch = [];
 
     for (const transaction of transactions) {
-      // Soporte para transacciones manuales (sin plaidTransactionId)
+      // Para transacciones manuales el monto ya viene con el signo correcto
+      // (negativo = gasto, positivo = ingreso).
+      // Para Plaid: amount > 0 significa débito, se niega para mantener
+      // la convención interna (negativo = gasto).
       const isManual = transaction.manual === true;
       const amount = isManual
-        ? (transaction.amount > 0 ? -transaction.amount : transaction.amount)
-        : -transaction.amount; // Plaid usa positivo para débitos
+        ? transaction.amount                 // Ya viene con signo correcto
+        : -transaction.amount;               // Plaid usa positivo para débitos
 
       batch.push(addDoc(txRef, {
         plaidTransactionId: isManual ? null : transaction.transaction_id,
@@ -59,7 +62,7 @@ export const saveTransactions = async (userId, transactions) => {
         category: transaction.category?.[0] || 'Sin categoría',
         merchant: transaction.merchant_name || transaction.name,
         status: 'completada',
-        type: amount > 0 ? 'credito' : 'debito',
+        type: amount >= 0 ? 'credito' : 'debito',
         manual: isManual,
         createdAt: serverTimestamp(),
       }));
