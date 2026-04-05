@@ -30,7 +30,7 @@ const getUsageColor = (percent) => {
 const CreditCardItem = ({ card, onPress }) => {
   const usagePercent = calculateUsagePercent(card.balance, card.creditLimit);
   const usageColor = getUsageColor(usagePercent);
-  const cardColor = card.color || Colors.primary;
+  const cardColor = card.color || Colors.cardOnyx;
 
   return (
     <TouchableOpacity
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   dueDateValue: {
-    color: '#FFD54F',
+    color: Colors.primaryGlow,
   },
 });
 

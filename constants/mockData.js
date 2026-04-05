@@ -260,6 +260,34 @@ export const spendingCategories = [
   { name: 'Compras', icon: 'shopping', color: '#2196F3', amount: 131.66 },
 ];
 
+// Deudas generales de ejemplo (autos, préstamos, hipotecas, etc.)
+export const mockDebts = [
+  {
+    id: 'debt1',
+    entityName: 'Toyota Financial',
+    debtType: 'auto',
+    originalAmount: 28000,
+    remainingBalance: 19500,
+    monthlyPayment: 485,
+    interestRate: 4.9,
+    dueDate: '2024-02-05',
+    startDate: '2022-03-01',
+    notes: 'Toyota Camry 2022',
+  },
+  {
+    id: 'debt2',
+    entityName: 'SoFi Bank',
+    debtType: 'personal',
+    originalAmount: 10000,
+    remainingBalance: 6200,
+    monthlyPayment: 320,
+    interestRate: 8.5,
+    dueDate: '2024-02-10',
+    startDate: '2023-01-15',
+    notes: 'Préstamo personal consolidación',
+  },
+];
+
 export default {
   mockUser,
   mockCreditCards,
@@ -267,5 +295,6 @@ export default {
   mockTransactions,
   mockAlerts,
   mockFinancialSummary,
+  mockDebts,
   spendingCategories,
 };
