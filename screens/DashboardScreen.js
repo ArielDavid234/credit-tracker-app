@@ -2,7 +2,7 @@
 // Vista central con resumen financiero del usuario
 // Muestra: balance total, tarjetas, cuentas, próximos pagos
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,39 +18,33 @@ import CreditCardItem from '../components/CreditCardItem';
 import TransactionItem from '../components/TransactionItem';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getCurrentUser } from '../services/authService';
-import { getFinancialSummary } from '../services/accountService';
-import {
-  mockCreditCards,
-  mockBankAccounts,
-  mockTransactions,
-  mockFinancialSummary,
-} from '../constants/mockData';
+import { getCreditCards, getBankAccounts, getFinancialSummary } from '../services/accountService';
+import { getTransactions } from '../services/transactionService';
 
 const DashboardScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState(null);
-  const [summary, setSummary] = useState(mockFinancialSummary);
+  const [summary, setSummary] = useState(null);
   const [recentCards, setRecentCards] = useState([]);
   const [recentTransactions, setRecentTransactions] = useState([]);
 
-  // Cargar datos al montar la pantalla
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const currentUser = getCurrentUser();
       setUser(currentUser);
+      if (!currentUser) return;
 
-      // Usar datos mock para demostración
-      // En producción, estos vendrían de Firebase/Plaid
-      setRecentCards(mockCreditCards.slice(0, 2));
-      setRecentTransactions(mockTransactions.slice(0, 5));
+      const [cards, accounts, transactions] = await Promise.all([
+        getCreditCards(currentUser.uid),
+        getBankAccounts(currentUser.uid),
+        getTransactions(currentUser.uid, { maxResults: 5 }),
+      ]);
 
-      // Calcular resumen financiero con datos mock
-      const calculatedSummary = getFinancialSummary(mockCreditCards, mockBankAccounts);
+      setRecentCards(cards.slice(0, 2));
+      setRecentTransactions(transactions);
+
+      const calculatedSummary = getFinancialSummary(cards, accounts);
       setSummary(calculatedSummary);
     } catch (error) {
       console.error('Error cargando dashboard:', error);
@@ -58,9 +52,12 @@ const DashboardScreen = ({ navigation }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  // Actualizar al tirar hacia abajo
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
@@ -102,10 +99,12 @@ const DashboardScreen = ({ navigation }) => {
       </View>
 
       {/* Resumen de saldos */}
-      <BalanceSummary
-        summary={summary}
-        onViewDetails={() => navigation.navigate('Transactions')}
-      />
+      {summary && (
+        <BalanceSummary
+          summary={summary}
+          onViewDetails={() => navigation.navigate('Transactions')}
+        />
+      )}
 
       {/* Sección: Mis Tarjetas de Crédito */}
       <View style={styles.sectionContainer}>
@@ -165,28 +164,45 @@ const DashboardScreen = ({ navigation }) => {
               <Text style={styles.emptyText}>
                 No hay transacciones recientes
               </Text>
+              <TouchableOpacity
+                style={styles.addTransactionBtn}
+                onPress={() => navigation.navigate('Transactions')}
+              >
+                <Text style={styles.addTransactionBtnText}>+ Agregar transacción</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
       </View>
 
-      {/* Sección: Conectar nueva cuenta */}
+      {/* Sección: Accesos rápidos */}
       <View style={styles.sectionContainer}>
-        <TouchableOpacity
-          style={styles.connectAccountCard}
-          onPress={() => navigation.navigate('AddAccount')}
-        >
-          <MaterialCommunityIcons name="bank-plus" size={32} color={Colors.primary} />
-          <View style={styles.connectAccountText}>
-            <Text style={styles.connectAccountTitle}>
-              Conectar Cuenta Bancaria
-            </Text>
-            <Text style={styles.connectAccountSubtitle}>
-              Usa Plaid para conectar tu banco de forma segura
-            </Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.primary} />
-        </TouchableOpacity>
+        <Text style={[styles.sectionTitle, { paddingHorizontal: Spacing.md, marginBottom: Spacing.sm }]}>
+          Accesos Rápidos
+        </Text>
+        <View style={styles.quickActionsRow}>
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={() => navigation.navigate('AddAccount')}
+          >
+            <MaterialCommunityIcons name="bank-plus" size={26} color={Colors.primary} />
+            <Text style={styles.quickActionText}>Agregar Cuenta</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={() => navigation.navigate('Transactions')}
+          >
+            <MaterialCommunityIcons name="plus-circle-outline" size={26} color={Colors.primary} />
+            <Text style={styles.quickActionText}>Nueva Transacción</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={() => navigation.navigate('Deudas')}
+          >
+            <MaterialCommunityIcons name="cash-multiple" size={26} color={Colors.primary} />
+            <Text style={styles.quickActionText}>Mis Deudas</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Espaciado al final */}
@@ -276,6 +292,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   emptyTransactions: {
     padding: Spacing.xl,
@@ -286,29 +304,45 @@ const styles = StyleSheet.create({
     color: Colors.textDisabled,
     marginTop: Spacing.sm,
   },
-  connectAccountCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: `${Colors.primary}10`,
-    borderRadius: BorderRadius.xl,
-    marginHorizontal: Spacing.md,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: `${Colors.primary}30`,
+  addTransactionBtn: {
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.round,
+    backgroundColor: `${Colors.primary}18`,
   },
-  connectAccountText: {
-    flex: 1,
-    marginLeft: Spacing.md,
-  },
-  connectAccountTitle: {
-    fontSize: 15,
-    fontWeight: '600',
+  addTransactionBtnText: {
     color: Colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
   },
-  connectAccountSubtitle: {
-    fontSize: 12,
+  quickActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  quickAction: {
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
+    flex: 1,
+    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  quickActionText: {
+    fontSize: 11,
     color: Colors.textSecondary,
-    marginTop: 2,
+    marginTop: 6,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });
 

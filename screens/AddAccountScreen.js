@@ -1,6 +1,5 @@
 // Pantalla para Agregar Nueva Cuenta o Tarjeta
-// Integra con Plaid para conectar cuentas bancarias reales
-// Incluye opción de agregar cuentas manualmente
+// Integra con Firebase para guardar cuentas y tarjetas reales
 
 import React, { useState } from 'react';
 import {
@@ -15,6 +14,8 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { getCurrentUser } from '../services/authService';
+import { addCreditCard, addBankAccount } from '../services/accountService';
 
 // Opciones de tipo de cuenta
 const accountTypes = [
@@ -38,7 +39,6 @@ const popularBanks = [
 const AddAccountScreen = ({ navigation }) => {
   const [selectedType, setSelectedType] = useState('checking');
   const [loading, setLoading] = useState(false);
-  const [useManual, setUseManual] = useState(false);
 
   // Campos del formulario manual
   const [bankName, setBankName] = useState('');
@@ -47,30 +47,12 @@ const AddAccountScreen = ({ navigation }) => {
   const [balance, setBalance] = useState('');
   const [creditLimit, setCreditLimit] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [minimumPayment, setMinimumPayment] = useState('');
+  const [interestRate, setInterestRate] = useState('');
 
-  // Simular conexión con Plaid (en producción, abrir el Plaid Link)
-  const handlePlaidConnect = async () => {
-    setLoading(true);
-    // Aquí iría la integración real con Plaid Link
-    // Por ahora simulamos con un timeout
-    setTimeout(() => {
-      setLoading(false);
-      Alert.alert(
-        'Plaid Sandbox',
-        'Para conectar con Plaid:\n\n' +
-        '1. Configura tus credenciales en services/plaid.js\n' +
-        '2. Usa las credenciales de prueba:\n' +
-        '   Usuario: user_good\n' +
-        '   Contraseña: pass_good\n\n' +
-        'Ver SETUP_GUIDE.md para instrucciones completas.',
-        [{ text: 'Entendido' }]
-      );
-    }, 1500);
-  };
-
-  // Guardar cuenta manual
-  const handleSaveManual = () => {
-    if (!bankName || !accountName || !lastFour || !balance) {
+  // Guardar cuenta manual en Firebase
+  const handleSaveManual = async () => {
+    if (!bankName.trim() || !accountName.trim() || !lastFour || !balance) {
       Alert.alert('Error', 'Por favor completa todos los campos requeridos.');
       return;
     }
@@ -80,68 +62,67 @@ const AddAccountScreen = ({ navigation }) => {
       return;
     }
 
-    // En producción, aquí se guardaría en Firebase
-    Alert.alert(
-      'Cuenta Agregada',
-      `La cuenta "${accountName}" ha sido agregada exitosamente.`,
-      [{ text: 'OK', onPress: () => navigation.goBack() }]
-    );
+    if (isNaN(parseFloat(balance))) {
+      Alert.alert('Error', 'El saldo debe ser un número válido.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const user = getCurrentUser();
+      if (!user) {
+        Alert.alert('Error', 'Debes iniciar sesión primero.');
+        return;
+      }
+
+      if (selectedType === 'credit') {
+        await addCreditCard(user.uid, {
+          name: accountName.trim(),
+          bank: bankName.trim(),
+          lastFour,
+          balance: parseFloat(balance) || 0,
+          creditLimit: parseFloat(creditLimit) || 0,
+          availableCredit: (parseFloat(creditLimit) || 0) - (parseFloat(balance) || 0),
+          minimumPayment: parseFloat(minimumPayment) || 0,
+          dueDate: dueDate || '',
+          interestRate: parseFloat(interestRate) || 0,
+          color: Colors.cardGold,
+          network: 'Visa',
+        });
+      } else {
+        await addBankAccount(user.uid, {
+          name: accountName.trim(),
+          bank: bankName.trim(),
+          type: selectedType,
+          lastFour,
+          balance: parseFloat(balance) || 0,
+          availableBalance: parseFloat(balance) || 0,
+          color: Colors.bankGold,
+        });
+      }
+
+      Alert.alert(
+        '¡Cuenta Agregada!',
+        `La cuenta "${accountName}" fue guardada exitosamente.`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo guardar la cuenta. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
-    return <LoadingSpinner fullScreen message="Conectando con Plaid..." />;
+    return <LoadingSpinner fullScreen message="Guardando cuenta..." />;
   }
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Opción de Plaid (recomendada) */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Conexión Automática (Recomendada)</Text>
-        <Text style={styles.sectionSubtitle}>
-          Conecta tu banco de forma segura con Plaid
-        </Text>
-
-        <TouchableOpacity style={styles.plaidButton} onPress={handlePlaidConnect}>
-          <View style={styles.plaidButtonIcon}>
-            <MaterialCommunityIcons name="shield-check" size={32} color={Colors.white} />
-          </View>
-          <View style={styles.plaidButtonText}>
-            <Text style={styles.plaidButtonTitle}>Conectar con Plaid</Text>
-            <Text style={styles.plaidButtonSubtitle}>
-              Acceso seguro • Encriptado • Instantáneo
-            </Text>
-          </View>
-          <MaterialCommunityIcons name="arrow-right" size={22} color={Colors.white} />
-        </TouchableOpacity>
-
-        {/* Bancos populares que puedes conectar */}
-        <Text style={styles.popularBanksTitle}>Bancos disponibles:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.banksRow}>
-            {popularBanks.map(bank => (
-              <View key={bank.name} style={styles.bankChip}>
-                <MaterialCommunityIcons
-                  name={bank.icon}
-                  size={16}
-                  color={bank.color}
-                />
-                <Text style={styles.bankChipText}>{bank.name}</Text>
-              </View>
-            ))}
-          </View>
-        </ScrollView>
-      </View>
-
-      {/* Divisor */}
-      <View style={styles.divider}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>o agrega manualmente</Text>
-        <View style={styles.dividerLine} />
-      </View>
-
       {/* Formulario Manual */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Agregar Manualmente</Text>
+        <Text style={styles.sectionTitle}>Agregar Cuenta o Tarjeta</Text>
+        <Text style={styles.sectionSubtitle}>Ingresa los datos manualmente</Text>
 
         {/* Tipo de cuenta */}
         <Text style={styles.fieldLabel}>Tipo de Cuenta</Text>
@@ -169,6 +150,25 @@ const AddAccountScreen = ({ navigation }) => {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* Bancos populares */}
+        <Text style={styles.popularBanksTitle}>Bancos disponibles:</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.banksRow}>
+            {popularBanks.map(bank => (
+              <TouchableOpacity
+                key={bank.name}
+                style={[styles.bankChip, bankName === bank.name && styles.bankChipSelected]}
+                onPress={() => setBankName(bank.name)}
+              >
+                <MaterialCommunityIcons name={bank.icon} size={16} color={bankName === bank.name ? Colors.primary : bank.color} />
+                <Text style={[styles.bankChipText, bankName === bank.name && { color: Colors.primary, fontWeight: '700' }]}>
+                  {bank.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
 
         {/* Campo: Banco */}
         <Text style={styles.fieldLabel}>Banco *</Text>
@@ -203,7 +203,9 @@ const AddAccountScreen = ({ navigation }) => {
         />
 
         {/* Campo: Saldo actual */}
-        <Text style={styles.fieldLabel}>Saldo actual *</Text>
+        <Text style={styles.fieldLabel}>
+          {selectedType === 'credit' ? 'Saldo actual (deuda) *' : 'Saldo actual *'}
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="0.00"
@@ -213,7 +215,7 @@ const AddAccountScreen = ({ navigation }) => {
           keyboardType="decimal-pad"
         />
 
-        {/* Campo: Límite de crédito (solo para tarjetas) */}
+        {/* Campos exclusivos para tarjetas */}
         {selectedType === 'credit' && (
           <>
             <Text style={styles.fieldLabel}>Límite de crédito</Text>
@@ -226,10 +228,30 @@ const AddAccountScreen = ({ navigation }) => {
               keyboardType="decimal-pad"
             />
 
+            <Text style={styles.fieldLabel}>Pago mínimo mensual</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0.00"
+              placeholderTextColor={Colors.textDisabled}
+              value={minimumPayment}
+              onChangeText={setMinimumPayment}
+              keyboardType="decimal-pad"
+            />
+
+            <Text style={styles.fieldLabel}>Tasa de interés anual (%)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0.00"
+              placeholderTextColor={Colors.textDisabled}
+              value={interestRate}
+              onChangeText={setInterestRate}
+              keyboardType="decimal-pad"
+            />
+
             <Text style={styles.fieldLabel}>Fecha de pago (YYYY-MM-DD)</Text>
             <TextInput
               style={styles.input}
-              placeholder="2024-02-15"
+              placeholder="2025-02-15"
               placeholderTextColor={Colors.textDisabled}
               value={dueDate}
               onChangeText={setDueDate}
@@ -240,7 +262,7 @@ const AddAccountScreen = ({ navigation }) => {
         {/* Botón guardar */}
         <TouchableOpacity style={styles.saveButton} onPress={handleSaveManual}>
           <MaterialCommunityIcons name="content-save" size={20} color={Colors.white} />
-          <Text style={styles.saveButtonText}>Guardar Cuenta</Text>
+          <Text style={styles.saveButtonText}>Guardar en Firebase</Text>
         </TouchableOpacity>
       </View>
 
@@ -264,6 +286,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   sectionTitle: {
     fontSize: 17,
@@ -276,46 +300,12 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginBottom: Spacing.md,
   },
-  plaidButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.md,
-    marginBottom: Spacing.md,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  plaidButtonIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: Spacing.md,
-  },
-  plaidButtonText: {
-    flex: 1,
-  },
-  plaidButtonTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: Colors.white,
-  },
-  plaidButtonSubtitle: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 2,
-  },
   popularBanksTitle: {
     fontSize: 13,
     color: Colors.textSecondary,
     marginBottom: Spacing.sm,
     fontWeight: '500',
+    marginTop: Spacing.md,
   },
   banksRow: {
     flexDirection: 'row',
@@ -333,26 +323,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  bankChipSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: `${Colors.primary}12`,
+  },
   bankChipText: {
     fontSize: 13,
     color: Colors.textPrimary,
     fontWeight: '500',
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.xl,
-    marginVertical: Spacing.sm,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Colors.divider,
-  },
-  dividerText: {
-    fontSize: 13,
-    color: Colors.textDisabled,
-    marginHorizontal: Spacing.md,
   },
   fieldLabel: {
     fontSize: 14,
@@ -373,6 +351,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.border,
     gap: 6,
+    backgroundColor: Colors.background,
   },
   typeOptionSelected: {
     backgroundColor: Colors.primary,
@@ -402,12 +381,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.secondary,
+    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     marginTop: Spacing.lg,
     gap: Spacing.sm,
-    shadowColor: Colors.secondary,
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
     shadowRadius: 6,

@@ -1,20 +1,22 @@
 // Pantalla de Cuentas Bancarias
 // Lista todas las cuentas bancarias conectadas con sus saldos
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert,
   RefreshControl,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
 import BankAccountItem from '../components/BankAccountItem';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { mockBankAccounts } from '../constants/mockData';
+import { getCurrentUser } from '../services/authService';
+import { getBankAccounts, deleteBankAccount } from '../services/accountService';
 
 // Formatear moneda en USD
 const formatCurrency = (amount) => {
@@ -25,22 +27,63 @@ const formatCurrency = (amount) => {
 };
 
 const BankAccountsScreen = ({ navigation }) => {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [accounts, setAccounts] = useState(mockBankAccounts);
+  const [accounts, setAccounts] = useState([]);
+
+  const loadAccounts = useCallback(async () => {
+    try {
+      const user = getCurrentUser();
+      if (!user) return;
+      const data = await getBankAccounts(user.uid);
+      setAccounts(data);
+    } catch (error) {
+      console.error('Error cargando cuentas:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAccounts();
+  }, [loadAccounts]);
 
   // Separar por tipo de cuenta
   const checkingAccounts = accounts.filter(a => a.type === 'checking');
   const savingsAccounts = accounts.filter(a => a.type === 'savings');
 
   // Calcular totales
-  const totalBalance = accounts.reduce((sum, a) => sum + a.balance, 0);
-  const totalChecking = checkingAccounts.reduce((sum, a) => sum + a.balance, 0);
-  const totalSavings = savingsAccounts.reduce((sum, a) => sum + a.balance, 0);
+  const totalBalance = accounts.reduce((sum, a) => sum + (parseFloat(a.balance) || 0), 0);
+  const totalChecking = checkingAccounts.reduce((sum, a) => sum + (parseFloat(a.balance) || 0), 0);
+  const totalSavings = savingsAccounts.reduce((sum, a) => sum + (parseFloat(a.balance) || 0), 0);
 
   const onRefresh = () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
+    loadAccounts();
+  };
+
+  const handleDelete = (accountId, accountName) => {
+    Alert.alert(
+      'Eliminar cuenta',
+      `¿Deseas eliminar "${accountName}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const user = getCurrentUser();
+              await deleteBankAccount(user.uid, accountId);
+              await loadAccounts();
+            } catch {
+              Alert.alert('Error', 'No se pudo eliminar la cuenta.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -56,6 +99,7 @@ const BankAccountsScreen = ({ navigation }) => {
             refreshing={refreshing}
             onRefresh={onRefresh}
             colors={[Colors.primary]}
+            tintColor={Colors.primary}
           />
         }
       >
@@ -82,7 +126,10 @@ const BankAccountsScreen = ({ navigation }) => {
         {/* Encabezado */}
         <View style={styles.listHeader}>
           <Text style={styles.listTitle}>Mis Cuentas ({accounts.length})</Text>
-          <TouchableOpacity style={styles.addButton}>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => navigation.navigate('Dashboard', { screen: 'AddAccount' })}
+          >
             <MaterialCommunityIcons name="plus" size={18} color={Colors.primary} />
             <Text style={styles.addButtonText}>Agregar</Text>
           </TouchableOpacity>
@@ -96,7 +143,15 @@ const BankAccountsScreen = ({ navigation }) => {
               {' '}Cuentas Corrientes
             </Text>
             {checkingAccounts.map(account => (
-              <BankAccountItem key={account.id} account={account} />
+              <View key={account.id} style={styles.accountWrapper}>
+                <BankAccountItem account={account} />
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => handleDelete(account.id, account.name)}
+                >
+                  <MaterialCommunityIcons name="trash-can-outline" size={18} color={Colors.error} />
+                </TouchableOpacity>
+              </View>
             ))}
           </View>
         )}
@@ -109,7 +164,15 @@ const BankAccountsScreen = ({ navigation }) => {
               {' '}Cuentas de Ahorro
             </Text>
             {savingsAccounts.map(account => (
-              <BankAccountItem key={account.id} account={account} />
+              <View key={account.id} style={styles.accountWrapper}>
+                <BankAccountItem account={account} />
+                <TouchableOpacity
+                  style={styles.deleteButton}
+                  onPress={() => handleDelete(account.id, account.name)}
+                >
+                  <MaterialCommunityIcons name="trash-can-outline" size={18} color={Colors.error} />
+                </TouchableOpacity>
+              </View>
             ))}
           </View>
         )}
@@ -124,24 +187,16 @@ const BankAccountsScreen = ({ navigation }) => {
             />
             <Text style={styles.emptyTitle}>Sin cuentas bancarias</Text>
             <Text style={styles.emptySubtitle}>
-              Conecta tu banco usando Plaid para ver tus saldos automáticamente
+              Agrega tus cuentas manualmente para ver tus saldos
             </Text>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={() => navigation.navigate('Dashboard', { screen: 'AddAccount' })}
+            >
+              <Text style={styles.emptyButtonText}>+ Agregar Cuenta</Text>
+            </TouchableOpacity>
           </View>
         )}
-
-        {/* Botón de conectar banco con Plaid */}
-        <TouchableOpacity style={styles.plaidCard}>
-          <View style={styles.plaidIconContainer}>
-            <MaterialCommunityIcons name="shield-check" size={28} color={Colors.primary} />
-          </View>
-          <View style={styles.plaidText}>
-            <Text style={styles.plaidTitle}>Conectar con Plaid</Text>
-            <Text style={styles.plaidSubtitle}>
-              Conexión bancaria segura y encriptada
-            </Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.primary} />
-        </TouchableOpacity>
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
@@ -160,19 +215,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryTitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.7)',
     marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   summaryTotal: {
     fontSize: 38,
     fontWeight: 'bold',
-    color: Colors.white,
+    color: Colors.primary,
     marginBottom: Spacing.lg,
   },
   summaryBreakdown: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     width: '100%',
@@ -184,7 +241,7 @@ const styles = StyleSheet.create({
   },
   breakdownLabel: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.7)',
   },
   breakdownValue: {
     fontSize: 15,
@@ -193,7 +250,7 @@ const styles = StyleSheet.create({
   },
   breakdownDivider: {
     width: 1,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     marginHorizontal: Spacing.md,
   },
   listHeader: {
@@ -211,7 +268,7 @@ const styles = StyleSheet.create({
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${Colors.primary}15`,
+    backgroundColor: `${Colors.primary}18`,
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
     borderRadius: BorderRadius.round,
@@ -234,6 +291,17 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  accountWrapper: {
+    position: 'relative',
+  },
+  deleteButton: {
+    position: 'absolute',
+    top: 12,
+    right: 24,
+    backgroundColor: `${Colors.error}15`,
+    borderRadius: BorderRadius.md,
+    padding: 6,
+  },
   emptyState: {
     alignItems: 'center',
     padding: Spacing.xxl,
@@ -251,38 +319,17 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     lineHeight: 20,
   },
-  plaidCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: `${Colors.primary}08`,
-    borderRadius: BorderRadius.xl,
-    marginHorizontal: Spacing.md,
-    padding: Spacing.md,
-    marginTop: Spacing.sm,
-    borderWidth: 1,
-    borderColor: `${Colors.primary}25`,
-  },
-  plaidIconContainer: {
-    width: 50,
-    height: 50,
+  emptyButton: {
+    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,
-    backgroundColor: `${Colors.primary}15`,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.lg,
   },
-  plaidText: {
-    flex: 1,
-  },
-  plaidTitle: {
+  emptyButtonText: {
+    color: Colors.white,
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.primary,
-  },
-  plaidSubtitle: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: 2,
   },
 });
 

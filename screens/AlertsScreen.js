@@ -1,7 +1,7 @@
 // Pantalla de Alertas y Notificaciones
-// Muestra alertas de pagos próximos, uso de crédito, etc.
+// Genera alertas automáticas basadas en datos reales de Firebase
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,12 +15,131 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
 import AlertItem from '../components/AlertItem';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { mockAlerts } from '../constants/mockData';
+import { getCurrentUser } from '../services/authService';
+import { getCreditCards } from '../services/accountService';
+import { getDebts } from '../services/debtService';
+
+// Generar alertas automáticas a partir de tarjetas de crédito y deudas
+const generateAlerts = (creditCards, debts) => {
+  const alerts = [];
+  const today = new Date();
+
+  // Alertas de tarjetas de crédito
+  creditCards.forEach((card, idx) => {
+    const balance = parseFloat(card.balance) || 0;
+    const creditLimit = parseFloat(card.creditLimit) || 0;
+    const minimumPayment = parseFloat(card.minimumPayment) || 0;
+
+    // Alerta de pago próximo
+    if (card.dueDate) {
+      const due = new Date(card.dueDate);
+      const daysUntilDue = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+      if (daysUntilDue >= 0 && daysUntilDue <= 10) {
+        alerts.push({
+          id: `card-due-${card.id || idx}`,
+          type: 'pago_proximo',
+          title: `Pago próximo - ${card.name || card.bank}`,
+          message: `Tu pago mínimo de ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(minimumPayment)} vence en ${daysUntilDue} día${daysUntilDue !== 1 ? 's' : ''} (${card.dueDate})`,
+          date: today.toISOString().split('T')[0],
+          dueDate: card.dueDate,
+          amount: minimumPayment,
+          accountId: card.id,
+          priority: daysUntilDue <= 3 ? 'alta' : 'media',
+          read: false,
+        });
+      }
+    }
+
+    // Alerta de uso alto de crédito
+    if (creditLimit > 0) {
+      const utilization = (balance / creditLimit) * 100;
+      if (utilization >= 30) {
+        alerts.push({
+          id: `card-util-${card.id || idx}`,
+          type: 'limite_credito',
+          title: `Uso ${utilization >= 70 ? 'muy alto' : 'alto'} de crédito - ${card.name || card.bank}`,
+          message: `Has usado el ${utilization.toFixed(1)}% de tu límite de crédito en ${card.name || card.bank}`,
+          date: today.toISOString().split('T')[0],
+          accountId: card.id,
+          priority: utilization >= 70 ? 'alta' : 'media',
+          read: false,
+        });
+      }
+    }
+  });
+
+  // Alertas de deudas
+  debts.forEach((debt, idx) => {
+    if (debt.dueDay) {
+      const dueDay = parseInt(debt.dueDay, 10);
+      const todayDay = today.getDate();
+      const daysUntil = dueDay >= todayDay ? dueDay - todayDay : (new Date(today.getFullYear(), today.getMonth() + 1, dueDay) - today) / (1000 * 60 * 60 * 24);
+      const daysLeft = Math.ceil(daysUntil);
+
+      if (daysLeft >= 0 && daysLeft <= 7) {
+        alerts.push({
+          id: `debt-due-${debt.id || idx}`,
+          type: 'pago_proximo',
+          title: `Pago próximo - ${debt.creditorName}`,
+          message: `Tu pago de ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.monthlyPayment)} vence en ${daysLeft} día${daysLeft !== 1 ? 's' : ''} (día ${debt.dueDay})`,
+          date: today.toISOString().split('T')[0],
+          amount: parseFloat(debt.monthlyPayment) || 0,
+          accountId: debt.id,
+          priority: daysLeft <= 3 ? 'alta' : 'media',
+          read: false,
+        });
+      }
+    }
+  });
+
+  // Si no hay alertas, mensaje de todo al día
+  if (alerts.length === 0) {
+    alerts.push({
+      id: 'all-good',
+      type: 'info',
+      title: '¡Todo al día! ✅',
+      message: 'No tienes pagos próximos ni alertas de crédito. ¡Sigue así!',
+      date: today.toISOString().split('T')[0],
+      priority: 'baja',
+      read: true,
+    });
+  }
+
+  return alerts;
+};
 
 const AlertsScreen = () => {
-  const [alerts, setAlerts] = useState(mockAlerts);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [alerts, setAlerts] = useState([]);
   const [activeFilter, setActiveFilter] = useState('all');
+
+  const loadAlerts = useCallback(async () => {
+    try {
+      const user = getCurrentUser();
+      if (!user) return;
+      const [cards, debts] = await Promise.all([
+        getCreditCards(user.uid),
+        getDebts(user.uid),
+      ]);
+      const generated = generateAlerts(cards, debts);
+      setAlerts(generated);
+    } catch (error) {
+      console.error('Error generando alertas:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAlerts();
+  }, [loadAlerts]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadAlerts();
+  };
 
   // Contar alertas no leídas
   const unreadCount = alerts.filter(a => !a.read).length;
@@ -49,43 +168,25 @@ const AlertsScreen = () => {
     }
   };
 
-  // Descartar/eliminar una alerta
-  const handleDismiss = (alertId) => {
-    Alert.alert(
-      'Eliminar alerta',
-      '¿Deseas eliminar esta alerta?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: () => setAlerts(prev => prev.filter(a => a.id !== alertId)),
-        },
-      ]
-    );
-  };
-
   // Marcar todas como leídas
   const markAllRead = () => {
     setAlerts(prev => prev.map(a => ({ ...a, read: true })));
   };
 
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  };
+  if (loading) {
+    return <LoadingSpinner fullScreen message="Cargando alertas..." />;
+  }
 
   const renderItem = ({ item }) => (
     <AlertItem
       alert={item}
       onPress={handleAlertPress}
-      onDismiss={handleDismiss}
+      onDismiss={() => setAlerts(prev => prev.filter(a => a.id !== item.id))}
     />
   );
 
   const renderHeader = () => (
     <View>
-      {/* Resumen de alertas */}
       {unreadCount > 0 && (
         <View style={styles.unreadBanner}>
           <MaterialCommunityIcons name="bell-ring" size={20} color={Colors.warning} />
@@ -98,7 +199,6 @@ const AlertsScreen = () => {
         </View>
       )}
 
-      {/* Filtros */}
       <View style={styles.filtersContainer}>
         {filterOptions.map(filter => (
           <TouchableOpacity
@@ -130,11 +230,7 @@ const AlertsScreen = () => {
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={() => (
           <View style={styles.emptyState}>
-            <MaterialCommunityIcons
-              name="bell-check-outline"
-              size={72}
-              color={Colors.textDisabled}
-            />
+            <MaterialCommunityIcons name="bell-check-outline" size={72} color={Colors.textDisabled} />
             <Text style={styles.emptyTitle}>
               {activeFilter === 'unread' ? '¡Todo al día!' : 'Sin alertas'}
             </Text>
@@ -150,6 +246,7 @@ const AlertsScreen = () => {
             refreshing={refreshing}
             onRefresh={onRefresh}
             colors={[Colors.primary]}
+            tintColor={Colors.primary}
           />
         }
         contentContainerStyle={styles.listContent}

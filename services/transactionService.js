@@ -5,6 +5,8 @@ import {
   collection,
   addDoc,
   getDocs,
+  deleteDoc,
+  doc,
   query,
   orderBy,
   limit,
@@ -27,12 +29,46 @@ export const getTransactions = async (userId, options = {}) => {
     }
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
+    return snapshot.docs.map(d => ({
+      id: d.id,
+      ...d.data(),
     }));
   } catch (error) {
     console.error('Error obteniendo transacciones:', error);
+    throw error;
+  }
+};
+
+// Agregar una transacción manualmente
+export const addTransaction = async (userId, transactionData) => {
+  try {
+    const txRef = collection(db, 'users', userId, 'transactions');
+    const amount = parseFloat(transactionData.amount) || 0;
+    const docRef = await addDoc(txRef, {
+      description: transactionData.description || '',
+      amount: transactionData.type === 'debito' ? -Math.abs(amount) : Math.abs(amount),
+      date: transactionData.date || new Date().toISOString().split('T')[0],
+      category: transactionData.category || 'Sin categoría',
+      merchant: transactionData.merchant || transactionData.description || '',
+      accountId: transactionData.accountId || '',
+      status: 'completada',
+      type: transactionData.type || 'debito',
+      manual: true,
+      createdAt: serverTimestamp(),
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error agregando transacción:', error);
+    throw error;
+  }
+};
+
+// Eliminar una transacción
+export const deleteTransaction = async (userId, transactionId) => {
+  try {
+    await deleteDoc(doc(db, 'users', userId, 'transactions', transactionId));
+  } catch (error) {
+    console.error('Error eliminando transacción:', error);
     throw error;
   }
 };
@@ -110,8 +146,11 @@ export const formatCurrency = (amount) => {
 
 export default {
   getTransactions,
+  addTransaction,
+  deleteTransaction,
   saveTransactions,
   getSpendingSummary,
   getTotalSpending,
   formatCurrency,
 };
+
