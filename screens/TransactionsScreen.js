@@ -1,7 +1,8 @@
 // Pantalla de Historial de Transacciones
 // Lista todas las transacciones con filtros por cuenta y fecha
+// Conectada a Firebase Firestore para datos reales
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +15,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
 import TransactionItem from '../components/TransactionItem';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { getCurrentUser } from '../services/authService';
+import { getTransactions } from '../services/transactionService';
 import { mockTransactions } from '../constants/mockData';
 
 // Formatear moneda en USD
@@ -32,9 +35,34 @@ const filters = [
 ];
 
 const TransactionsScreen = () => {
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [transactions] = useState(mockTransactions);
+  const [transactions, setTransactions] = useState([]);
   const [activeFilter, setActiveFilter] = useState('all');
+
+  // Cargar transacciones desde Firebase al montar
+  useEffect(() => {
+    loadTransactions();
+  }, []);
+
+  const loadTransactions = async () => {
+    try {
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        const data = await getTransactions(currentUser.uid, { maxResults: 50 });
+        // Usar mock data como fallback si no hay datos
+        setTransactions(data.length > 0 ? data : mockTransactions);
+      } else {
+        setTransactions(mockTransactions);
+      }
+    } catch (error) {
+      console.error('Error cargando transacciones:', error);
+      setTransactions(mockTransactions);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   // Filtrar transacciones según el filtro activo
   const filteredTransactions = transactions.filter(txn => {
@@ -58,10 +86,10 @@ const TransactionsScreen = () => {
   });
   const periodTitle = currentPeriod.charAt(0).toUpperCase() + currentPeriod.slice(1);
 
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  };
+    loadTransactions();
+  }, []);
 
   const renderItem = ({ item }) => <TransactionItem transaction={item} />;
 
@@ -126,6 +154,7 @@ const TransactionsScreen = () => {
 
   return (
     <View style={styles.container}>
+      {loading && <LoadingSpinner fullScreen message="Cargando transacciones..." />}
       <FlatList
         data={filteredTransactions}
         renderItem={renderItem}

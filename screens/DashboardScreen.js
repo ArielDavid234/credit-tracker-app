@@ -1,8 +1,8 @@
 // Pantalla Principal - Dashboard
 // Vista central con resumen financiero del usuario
-// Muestra: balance total, tarjetas, cuentas, próximos pagos
+// Conectada a Firebase Firestore para datos reales
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,13 +18,19 @@ import CreditCardItem from '../components/CreditCardItem';
 import TransactionItem from '../components/TransactionItem';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getCurrentUser } from '../services/authService';
-import { getFinancialSummary } from '../services/accountService';
+import { getCreditCards, getBankAccounts, getFinancialSummary } from '../services/accountService';
+import { getTransactions } from '../services/transactionService';
+import { getDebts, getTotalDebtSummary } from '../services/debtService';
 import {
   mockCreditCards,
   mockBankAccounts,
   mockTransactions,
   mockFinancialSummary,
 } from '../constants/mockData';
+
+// Formatear moneda en USD
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
 
 const DashboardScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
@@ -33,6 +39,7 @@ const DashboardScreen = ({ navigation }) => {
   const [summary, setSummary] = useState(mockFinancialSummary);
   const [recentCards, setRecentCards] = useState([]);
   const [recentTransactions, setRecentTransactions] = useState([]);
+  const [debtSummary, setDebtSummary] = useState(null);
 
   // Cargar datos al montar la pantalla
   useEffect(() => {
@@ -44,16 +51,39 @@ const DashboardScreen = ({ navigation }) => {
       const currentUser = getCurrentUser();
       setUser(currentUser);
 
-      // Usar datos mock para demostración
-      // En producción, estos vendrían de Firebase/Plaid
-      setRecentCards(mockCreditCards.slice(0, 2));
-      setRecentTransactions(mockTransactions.slice(0, 5));
+      if (currentUser) {
+        // Cargar datos reales de Firebase en paralelo
+        const [cards, transactions, accounts, debts] = await Promise.all([
+          getCreditCards(currentUser.uid).catch(() => []),
+          getTransactions(currentUser.uid, { maxResults: 5 }).catch(() => []),
+          getBankAccounts(currentUser.uid).catch(() => []),
+          getDebts(currentUser.uid).catch(() => []),
+        ]);
 
-      // Calcular resumen financiero con datos mock
-      const calculatedSummary = getFinancialSummary(mockCreditCards, mockBankAccounts);
-      setSummary(calculatedSummary);
+        // Usar mock data como fallback si no hay datos
+        const finalCards = cards.length > 0 ? cards : mockCreditCards;
+        const finalTransactions = transactions.length > 0 ? transactions : mockTransactions.slice(0, 5);
+        const finalAccounts = accounts.length > 0 ? accounts : mockBankAccounts;
+
+        const calculatedSummary = getFinancialSummary(finalCards, finalAccounts);
+        setSummary(calculatedSummary);
+        setRecentCards(finalCards.slice(0, 2));
+        setRecentTransactions(finalTransactions);
+        setDebtSummary(getTotalDebtSummary(debts));
+      } else {
+        // Sin usuario: usar mock data
+        setRecentCards(mockCreditCards.slice(0, 2));
+        setRecentTransactions(mockTransactions.slice(0, 5));
+        const calculatedSummary = getFinancialSummary(mockCreditCards, mockBankAccounts);
+        setSummary(calculatedSummary);
+      }
     } catch (error) {
       console.error('Error cargando dashboard:', error);
+      // Fallback a mock data en caso de error
+      setRecentCards(mockCreditCards.slice(0, 2));
+      setRecentTransactions(mockTransactions.slice(0, 5));
+      const calculatedSummary = getFinancialSummary(mockCreditCards, mockBankAccounts);
+      setSummary(calculatedSummary);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -61,10 +91,10 @@ const DashboardScreen = ({ navigation }) => {
   };
 
   // Actualizar al tirar hacia abajo
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadData();
-  };
+  }, []);
 
   if (loading) {
     return <LoadingSpinner fullScreen message="Cargando tu resumen..." />;
@@ -169,6 +199,35 @@ const DashboardScreen = ({ navigation }) => {
           )}
         </View>
       </View>
+
+      {/* Sección: Resumen de Deudas */}
+      {debtSummary && debtSummary.count > 0 && (
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Deudas</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Deudas')}>
+              <Text style={styles.seeAllText}>Ver todas →</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={styles.debtSummaryCard}
+            onPress={() => navigation.navigate('Deudas')}
+          >
+            <View style={styles.debtSummaryLeft}>
+              <MaterialCommunityIcons name="file-document-outline" size={28} color={Colors.error} />
+              <View style={styles.debtSummaryText}>
+                <Text style={styles.debtSummaryLabel}>Total adeudado</Text>
+                <Text style={styles.debtSummaryAmount}>{formatCurrency(debtSummary.totalOwed)}</Text>
+              </View>
+            </View>
+            <View style={styles.debtSummaryRight}>
+              <Text style={styles.debtSummarySmall}>{debtSummary.count} deuda{debtSummary.count !== 1 ? 's' : ''}</Text>
+              <Text style={styles.debtSummarySmall}>Pago mensual: {formatCurrency(debtSummary.totalMonthlyPayment)}</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Sección: Conectar nueva cuenta */}
       <View style={styles.sectionContainer}>
@@ -309,6 +368,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
     marginTop: 2,
+  },
+  // Tarjeta de resumen de deudas en el Dashboard
+  debtSummaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: `${Colors.error}08`,
+    borderRadius: BorderRadius.xl,
+    marginHorizontal: Spacing.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: `${Colors.error}20`,
+  },
+  debtSummaryLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  debtSummaryText: {
+    marginLeft: Spacing.sm,
+  },
+  debtSummaryLabel: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  debtSummaryAmount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.error,
+  },
+  debtSummaryRight: {
+    alignItems: 'flex-end',
+    marginRight: Spacing.sm,
+  },
+  debtSummarySmall: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginBottom: 2,
   },
 });
 

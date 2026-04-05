@@ -1,7 +1,8 @@
 // Pantalla de Tarjetas de Crédito
 // Lista todas las tarjetas con saldo, límite, fecha de corte y pago mínimo
+// Conectada a Firebase Firestore para datos reales
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,11 +10,14 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
 import CreditCardItem from '../components/CreditCardItem';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { getCurrentUser } from '../services/authService';
+import { getCreditCards, deleteCreditCard } from '../services/accountService';
 import { mockCreditCards } from '../constants/mockData';
 
 // Formatear moneda en USD
@@ -25,24 +29,74 @@ const formatCurrency = (amount) => {
 };
 
 const CreditCardsScreen = ({ navigation }) => {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [cards, setCards] = useState(mockCreditCards);
+  const [cards, setCards] = useState([]);
 
-  // Calcular totales
-  const totalDebt = cards.reduce((sum, card) => sum + card.balance, 0);
-  const totalLimit = cards.reduce((sum, card) => sum + card.creditLimit, 0);
-  const totalAvailable = cards.reduce((sum, card) => sum + card.availableCredit, 0);
+  // Cargar tarjetas desde Firebase al montar
+  useEffect(() => {
+    loadCards();
+  }, []);
 
-  const onRefresh = () => {
+  const loadCards = async () => {
+    try {
+      const currentUser = getCurrentUser();
+      if (currentUser) {
+        const data = await getCreditCards(currentUser.uid);
+        // Usar mock data como fallback si no hay datos en Firebase
+        setCards(data.length > 0 ? data : mockCreditCards);
+      } else {
+        setCards(mockCreditCards);
+      }
+    } catch (error) {
+      console.error('Error cargando tarjetas:', error);
+      setCards(mockCreditCards);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Actualizar al tirar hacia abajo
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // En producción, aquí se recargarían los datos de Firebase
-    setTimeout(() => setRefreshing(false), 1000);
+    loadCards();
+  }, []);
+
+  // Confirmar y eliminar una tarjeta
+  const handleDeleteCard = (cardId, cardName) => {
+    Alert.alert(
+      'Eliminar Tarjeta',
+      `¿Deseas eliminar la tarjeta "${cardName}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const currentUser = getCurrentUser();
+              if (currentUser) {
+                await deleteCreditCard(currentUser.uid, cardId);
+                setCards((prev) => prev.filter((c) => c.id !== cardId));
+              }
+            } catch (error) {
+              Alert.alert('Error', 'No se pudo eliminar la tarjeta.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
     return <LoadingSpinner fullScreen message="Cargando tarjetas..." />;
   }
+
+  // Calcular totales con los datos cargados
+  const totalDebt = cards.reduce((sum, card) => sum + (card.balance || 0), 0);
+  const totalLimit = cards.reduce((sum, card) => sum + (card.creditLimit || 0), 0);
+  const totalAvailable = cards.reduce((sum, card) => sum + (card.availableCredit || 0), 0);
 
   return (
     <View style={styles.container}>
@@ -99,7 +153,15 @@ const CreditCardsScreen = ({ navigation }) => {
         {/* Lista de tarjetas */}
         {cards.length > 0 ? (
           cards.map(card => (
-            <CreditCardItem key={card.id} card={card} />
+            <View key={card.id} style={styles.cardWrapper}>
+              <CreditCardItem card={card} />
+              <TouchableOpacity
+                style={styles.cardDeleteBtn}
+                onPress={() => handleDeleteCard(card.id, card.name)}
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={18} color={Colors.error} />
+              </TouchableOpacity>
+            </View>
           ))
         ) : (
           <View style={styles.emptyState}>
@@ -141,8 +203,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  // Wrapper para cada tarjeta con botón de eliminar
+  cardWrapper: {
+    position: 'relative',
+  },
+  cardDeleteBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 24,
+    backgroundColor: Colors.surfaceAlt,
+    borderRadius: 20,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
   summaryContainer: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.secondary,
     padding: Spacing.md,
     marginBottom: Spacing.md,
   },
@@ -157,7 +233,7 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.7)',
     marginBottom: 4,
   },
   summaryValue: {
