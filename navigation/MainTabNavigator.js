@@ -177,7 +177,7 @@ const MainTabNavigator = () => {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: '#2C2C2E',
+    backgroundColor: Colors.secondary,
     borderTopWidth: 1,
     borderTopColor: 'rgba(184,151,74,0.3)',
     paddingBottom: 8,
