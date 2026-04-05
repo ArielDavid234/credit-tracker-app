@@ -1,5 +1,5 @@
 // Pantalla de Deudas Generales
-// Lista y gestiona todas las deudas: autos, préstamos, hipotecas, etc.
+// Gestiona deudas de autos, hipotecas, préstamos personales, etc.
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -8,8 +8,10 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  RefreshControl,
+  TextInput,
   Alert,
+  Modal,
+  RefreshControl,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
@@ -17,63 +19,111 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { getCurrentUser } from '../services/authService';
 import {
   getDebts,
+  addDebt,
   deleteDebt,
-  getTotalDebtSummary,
+  getDebtSummary,
   DEBT_TYPES,
 } from '../services/debtService';
-import { mockDebts } from '../constants/mockData';
 
-// Formatear moneda en USD
 const formatCurrency = (amount) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
 
-// Obtener información del tipo de deuda por id
-const getDebtTypeInfo = (typeId) =>
-  DEBT_TYPES.find((t) => t.id === typeId) || DEBT_TYPES[DEBT_TYPES.length - 1];
-
-const DebtsScreen = ({ navigation }) => {
+const DebtsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [debts, setDebts] = useState([]);
-  const [summary, setSummary] = useState({ totalOwed: 0, totalOriginal: 0, totalMonthlyPayment: 0, count: 0 });
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Cargar deudas desde Firebase al montar la pantalla
-  useEffect(() => {
-    loadDebts();
-  }, []);
+  // Campos del formulario
+  const [debtType, setDebtType] = useState('auto');
+  const [creditorName, setCreditorName] = useState('');
+  const [originalAmount, setOriginalAmount] = useState('');
+  const [remainingBalance, setRemainingBalance] = useState('');
+  const [monthlyPayment, setMonthlyPayment] = useState('');
+  const [interestRate, setInterestRate] = useState('');
+  const [dueDay, setDueDay] = useState('');
+  const [notes, setNotes] = useState('');
 
-  const loadDebts = async () => {
+  const loadDebts = useCallback(async () => {
     try {
-      const currentUser = getCurrentUser();
-      if (currentUser) {
-        const data = await getDebts(currentUser.uid);
-        // Usar mock data como fallback si no hay datos en Firebase
-        const finalData = data.length > 0 ? data : mockDebts;
-        setDebts(finalData);
-        setSummary(getTotalDebtSummary(finalData));
-      }
+      const user = getCurrentUser();
+      if (!user) return;
+      const data = await getDebts(user.uid);
+      setDebts(data);
     } catch (error) {
       console.error('Error cargando deudas:', error);
-      // En caso de error, mostrar datos mock
-      setDebts(mockDebts);
-      setSummary(getTotalDebtSummary(mockDebts));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  // Actualizar al tirar hacia abajo
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadDebts();
   }, []);
 
-  // Confirmar y eliminar una deuda
-  const handleDeleteDebt = (debtId, entityName) => {
+  useEffect(() => {
+    loadDebts();
+  }, [loadDebts]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadDebts();
+  };
+
+  const resetForm = () => {
+    setDebtType('auto');
+    setCreditorName('');
+    setOriginalAmount('');
+    setRemainingBalance('');
+    setMonthlyPayment('');
+    setInterestRate('');
+    setDueDay('');
+    setNotes('');
+  };
+
+  const handleSaveDebt = async () => {
+    if (!creditorName.trim()) {
+      Alert.alert('Error', 'Por favor ingresa el nombre del acreedor.');
+      return;
+    }
+    if (!remainingBalance || isNaN(parseFloat(remainingBalance))) {
+      Alert.alert('Error', 'Por favor ingresa el saldo pendiente.');
+      return;
+    }
+    if (!monthlyPayment || isNaN(parseFloat(monthlyPayment))) {
+      Alert.alert('Error', 'Por favor ingresa el pago mensual.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const user = getCurrentUser();
+      const typeInfo = DEBT_TYPES.find(t => t.id === debtType) || DEBT_TYPES[0];
+      await addDebt(user.uid, {
+        type: debtType,
+        typeLabel: typeInfo.label,
+        typeIcon: typeInfo.icon,
+        typeColor: typeInfo.color,
+        creditorName: creditorName.trim(),
+        originalAmount: originalAmount || remainingBalance,
+        remainingBalance,
+        monthlyPayment,
+        interestRate: interestRate || '0',
+        dueDay: dueDay || '',
+        notes: notes.trim(),
+      });
+      await loadDebts();
+      setShowAddModal(false);
+      resetForm();
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo guardar la deuda. Intenta de nuevo.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = (debtId, debtName) => {
     Alert.alert(
-      'Eliminar Deuda',
-      `¿Estás seguro de que quieres eliminar la deuda con "${entityName}"?`,
+      'Eliminar deuda',
+      `¿Deseas eliminar "${debtName}"?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -81,22 +131,19 @@ const DebtsScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const currentUser = getCurrentUser();
-              if (currentUser) {
-                await deleteDebt(currentUser.uid, debtId);
-                // Actualizar lista local
-                const updated = debts.filter((d) => d.id !== debtId);
-                setDebts(updated);
-                setSummary(getTotalDebtSummary(updated));
-              }
-            } catch (error) {
-              Alert.alert('Error', 'No se pudo eliminar la deuda. Intenta de nuevo.');
+              const user = getCurrentUser();
+              await deleteDebt(user.uid, debtId);
+              await loadDebts();
+            } catch {
+              Alert.alert('Error', 'No se pudo eliminar la deuda.');
             }
           },
         },
       ]
     );
   };
+
+  const summary = getDebtSummary(debts);
 
   if (loading) {
     return <LoadingSpinner fullScreen message="Cargando deudas..." />;
@@ -107,161 +154,250 @@ const DebtsScreen = ({ navigation }) => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[Colors.primary]}
-            tintColor={Colors.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} tintColor={Colors.primary} />
         }
       >
-        {/* Resumen total de deudas */}
+        {/* Resumen de deudas */}
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Total Adeudado</Text>
-          <Text style={styles.summaryAmount}>{formatCurrency(summary.totalOwed)}</Text>
+          <Text style={styles.summaryLabel}>Deuda Total Pendiente</Text>
+          <Text style={styles.summaryTotal}>{formatCurrency(summary.totalDebt)}</Text>
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
               <MaterialCommunityIcons name="cash-multiple" size={18} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.summaryLabel}>Pago Mensual</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(summary.totalMonthlyPayment)}</Text>
+              <Text style={styles.summaryItemLabel}>Pago mensual</Text>
+              <Text style={styles.summaryItemValue}>{formatCurrency(summary.totalMonthlyPayment)}</Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryItem}>
-              <MaterialCommunityIcons name="file-document-outline" size={18} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.summaryLabel}>Deudas</Text>
-              <Text style={styles.summaryValue}>{summary.count}</Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryItem}>
-              <MaterialCommunityIcons name="chart-pie" size={18} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.summaryLabel}>Original</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(summary.totalOriginal)}</Text>
+              <MaterialCommunityIcons name="format-list-numbered" size={18} color="rgba(255,255,255,0.8)" />
+              <Text style={styles.summaryItemLabel}>Total deudas</Text>
+              <Text style={styles.summaryItemValue}>{summary.count}</Text>
             </View>
           </View>
         </View>
 
-        {/* Encabezado de lista con botón agregar */}
+        {/* Encabezado lista */}
         <View style={styles.listHeader}>
-          <Text style={styles.listTitle}>Mis Deudas ({debts.length})</Text>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => navigation.navigate('AddDebt')}
-          >
+          <Text style={styles.listTitle}>Mis Deudas</Text>
+          <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
             <MaterialCommunityIcons name="plus" size={18} color={Colors.primary} />
             <Text style={styles.addButtonText}>Agregar</Text>
           </TouchableOpacity>
         </View>
 
         {/* Lista de deudas */}
-        {debts.length > 0 ? (
-          debts.map((debt) => {
-            const typeInfo = getDebtTypeInfo(debt.debtType);
+        {debts.length === 0 ? (
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons name="cash-remove" size={72} color={Colors.textDisabled} />
+            <Text style={styles.emptyTitle}>Sin deudas registradas</Text>
+            <Text style={styles.emptySubtitle}>
+              Agrega tus préstamos de autos, hipotecas u otras deudas para hacer seguimiento
+            </Text>
+            <TouchableOpacity style={styles.emptyAddButton} onPress={() => setShowAddModal(true)}>
+              <Text style={styles.emptyAddButtonText}>+ Agregar Deuda</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          debts.map(debt => {
             const progress = debt.originalAmount > 0
-              ? ((debt.originalAmount - debt.remainingBalance) / debt.originalAmount) * 100
+              ? Math.min(1 - (parseFloat(debt.remainingBalance) / parseFloat(debt.originalAmount)), 1)
               : 0;
-
             return (
               <View key={debt.id} style={styles.debtCard}>
-                {/* Encabezado de la tarjeta de deuda */}
                 <View style={styles.debtCardHeader}>
-                  <View style={[styles.debtIcon, { backgroundColor: `${typeInfo.color}20` }]}>
+                  <View style={[styles.debtIcon, { backgroundColor: `${debt.typeColor || Colors.primary}20` }]}>
                     <MaterialCommunityIcons
-                      name={typeInfo.icon}
+                      name={debt.typeIcon || 'cash-multiple'}
                       size={24}
-                      color={typeInfo.color}
+                      color={debt.typeColor || Colors.primary}
                     />
                   </View>
                   <View style={styles.debtInfo}>
-                    <Text style={styles.debtEntity}>{debt.entityName}</Text>
-                    <Text style={[styles.debtType, { color: typeInfo.color }]}>
-                      {typeInfo.label}
-                    </Text>
+                    <Text style={styles.debtName}>{debt.creditorName}</Text>
+                    <Text style={styles.debtType}>{debt.typeLabel}</Text>
                   </View>
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDeleteDebt(debt.id, debt.entityName)}
-                  >
+                  <TouchableOpacity onPress={() => handleDelete(debt.id, debt.creditorName)}>
                     <MaterialCommunityIcons name="trash-can-outline" size={20} color={Colors.error} />
                   </TouchableOpacity>
                 </View>
 
-                {/* Montos de la deuda */}
                 <View style={styles.debtAmounts}>
-                  <View style={styles.amountItem}>
-                    <Text style={styles.amountLabel}>Saldo Restante</Text>
-                    <Text style={[styles.amountValue, { color: Colors.error }]}>
+                  <View style={styles.debtAmountItem}>
+                    <Text style={styles.debtAmountLabel}>Saldo pendiente</Text>
+                    <Text style={[styles.debtAmountValue, { color: Colors.error }]}>
                       {formatCurrency(debt.remainingBalance)}
                     </Text>
                   </View>
-                  <View style={styles.amountItem}>
-                    <Text style={styles.amountLabel}>Pago Mensual</Text>
-                    <Text style={styles.amountValue}>{formatCurrency(debt.monthlyPayment)}</Text>
+                  <View style={styles.debtAmountItem}>
+                    <Text style={styles.debtAmountLabel}>Pago mensual</Text>
+                    <Text style={styles.debtAmountValue}>{formatCurrency(debt.monthlyPayment)}</Text>
                   </View>
-                  <View style={styles.amountItem}>
-                    <Text style={styles.amountLabel}>Tasa Anual</Text>
-                    <Text style={styles.amountValue}>{debt.interestRate || 0}%</Text>
-                  </View>
+                  {parseFloat(debt.interestRate) > 0 && (
+                    <View style={styles.debtAmountItem}>
+                      <Text style={styles.debtAmountLabel}>Tasa</Text>
+                      <Text style={styles.debtAmountValue}>{debt.interestRate}%</Text>
+                    </View>
+                  )}
                 </View>
 
-                {/* Barra de progreso de pago */}
-                <View style={styles.progressContainer}>
-                  <View style={styles.progressBar}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        { width: `${Math.min(progress, 100)}%`, backgroundColor: typeInfo.color },
-                      ]}
-                    />
+                {/* Barra de progreso */}
+                {debt.originalAmount > 0 && (
+                  <View style={styles.progressContainer}>
+                    <View style={styles.progressBar}>
+                      <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+                    </View>
+                    <Text style={styles.progressText}>{(progress * 100).toFixed(0)}% pagado</Text>
                   </View>
-                  <Text style={styles.progressText}>{progress.toFixed(1)}% pagado</Text>
-                </View>
+                )}
 
-                {/* Próximo pago y notas */}
-                {(debt.dueDate || debt.notes) ? (
-                  <View style={styles.debtFooter}>
-                    {debt.dueDate && (
-                      <View style={styles.dueDateBadge}>
-                        <MaterialCommunityIcons name="calendar-clock" size={13} color={Colors.warning} />
-                        <Text style={styles.dueDateText}>Próx. pago: {debt.dueDate}</Text>
-                      </View>
-                    )}
-                    {debt.notes && (
-                      <Text style={styles.debtNotes} numberOfLines={1}>{debt.notes}</Text>
-                    )}
-                  </View>
+                {debt.dueDay ? (
+                  <Text style={styles.dueText}>
+                    <MaterialCommunityIcons name="calendar" size={12} color={Colors.textSecondary} />
+                    {' '}Vence el día {debt.dueDay} de cada mes
+                  </Text>
+                ) : null}
+
+                {debt.notes ? (
+                  <Text style={styles.notesText}>{debt.notes}</Text>
                 ) : null}
               </View>
             );
           })
-        ) : (
-          // Estado vacío
-          <View style={styles.emptyState}>
-            <MaterialCommunityIcons name="file-document-outline" size={72} color={Colors.textDisabled} />
-            <Text style={styles.emptyTitle}>Sin deudas registradas</Text>
-            <Text style={styles.emptySubtitle}>
-              Agrega tus préstamos de auto, hipoteca u otras deudas para rastrear tu progreso de pago.
-            </Text>
-            <TouchableOpacity
-              style={styles.emptyButton}
-              onPress={() => navigation.navigate('AddDebt')}
-            >
-              <Text style={styles.emptyButtonText}>+ Agregar Deuda</Text>
-            </TouchableOpacity>
-          </View>
         )}
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
 
-      {/* Botón flotante para agregar deuda */}
-      {debts.length > 0 && (
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => navigation.navigate('AddDebt')}
-        >
-          <MaterialCommunityIcons name="plus" size={26} color={Colors.white} />
-        </TouchableOpacity>
-      )}
+      {/* Modal para agregar deuda */}
+      <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Nueva Deuda</Text>
+            <TouchableOpacity onPress={() => { setShowAddModal(false); resetForm(); }}>
+              <MaterialCommunityIcons name="close" size={24} color={Colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+            {/* Tipo de deuda */}
+            <Text style={styles.fieldLabel}>Tipo de Deuda</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Spacing.md }}>
+              <View style={styles.typeRow}>
+                {DEBT_TYPES.map(type => (
+                  <TouchableOpacity
+                    key={type.id}
+                    style={[
+                      styles.typeChip,
+                      debtType === type.id && { backgroundColor: type.color, borderColor: type.color },
+                    ]}
+                    onPress={() => setDebtType(type.id)}
+                  >
+                    <MaterialCommunityIcons
+                      name={type.icon}
+                      size={16}
+                      color={debtType === type.id ? Colors.white : Colors.textSecondary}
+                    />
+                    <Text style={[
+                      styles.typeChipText,
+                      debtType === type.id && { color: Colors.white },
+                    ]}>
+                      {type.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            <Text style={styles.fieldLabel}>Nombre del Acreedor / Institución *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="ej. Toyota Financial, Chase Mortgage..."
+              placeholderTextColor={Colors.textDisabled}
+              value={creditorName}
+              onChangeText={setCreditorName}
+            />
+
+            <Text style={styles.fieldLabel}>Saldo Pendiente *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0.00"
+              placeholderTextColor={Colors.textDisabled}
+              value={remainingBalance}
+              onChangeText={setRemainingBalance}
+              keyboardType="decimal-pad"
+            />
+
+            <Text style={styles.fieldLabel}>Monto Original del Préstamo</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0.00"
+              placeholderTextColor={Colors.textDisabled}
+              value={originalAmount}
+              onChangeText={setOriginalAmount}
+              keyboardType="decimal-pad"
+            />
+
+            <Text style={styles.fieldLabel}>Pago Mensual *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0.00"
+              placeholderTextColor={Colors.textDisabled}
+              value={monthlyPayment}
+              onChangeText={setMonthlyPayment}
+              keyboardType="decimal-pad"
+            />
+
+            <Text style={styles.fieldLabel}>Tasa de Interés Anual (%)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0.00"
+              placeholderTextColor={Colors.textDisabled}
+              value={interestRate}
+              onChangeText={setInterestRate}
+              keyboardType="decimal-pad"
+            />
+
+            <Text style={styles.fieldLabel}>Día de Vencimiento (1-31)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="ej. 15"
+              placeholderTextColor={Colors.textDisabled}
+              value={dueDay}
+              onChangeText={setDueDay}
+              keyboardType="numeric"
+              maxLength={2}
+            />
+
+            <Text style={styles.fieldLabel}>Notas (opcional)</Text>
+            <TextInput
+              style={[styles.input, styles.notesInput]}
+              placeholder="Información adicional..."
+              placeholderTextColor={Colors.textDisabled}
+              value={notes}
+              onChangeText={setNotes}
+              multiline
+              numberOfLines={3}
+            />
+
+            <TouchableOpacity
+              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+              onPress={handleSaveDebt}
+              disabled={saving}
+            >
+              {saving ? (
+                <Text style={styles.saveButtonText}>Guardando...</Text>
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="content-save" size={20} color={Colors.white} />
+                  <Text style={styles.saveButtonText}>Guardar Deuda</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <View style={{ height: Spacing.xxl }} />
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -271,27 +407,27 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  // Tarjeta de resumen superior
   summaryCard: {
     backgroundColor: Colors.secondary,
     padding: Spacing.xl,
     alignItems: 'center',
   },
-  summaryTitle: {
-    fontSize: 14,
+  summaryLabel: {
+    fontSize: 13,
     color: 'rgba(255,255,255,0.7)',
     marginBottom: 4,
+    textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  summaryAmount: {
-    fontSize: 38,
+  summaryTotal: {
+    fontSize: 36,
     fontWeight: 'bold',
     color: Colors.primary,
     marginBottom: Spacing.lg,
   },
   summaryRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     width: '100%',
@@ -299,23 +435,22 @@ const styles = StyleSheet.create({
   summaryItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 3,
+    gap: 4,
   },
-  summaryLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.6)',
+  summaryItemLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
   },
-  summaryValue: {
-    fontSize: 14,
+  summaryItemValue: {
+    fontSize: 15,
     fontWeight: 'bold',
     color: Colors.white,
   },
   summaryDivider: {
     width: 1,
     backgroundColor: 'rgba(255,255,255,0.2)',
-    marginHorizontal: Spacing.sm,
+    marginHorizontal: Spacing.md,
   },
-  // Encabezado de lista
   listHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -336,17 +471,43 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: BorderRadius.round,
     gap: 4,
-    borderWidth: 1,
-    borderColor: Colors.borderGold,
   },
   addButtonText: {
     fontSize: 14,
     color: Colors.primary,
     fontWeight: '600',
   },
-  // Tarjeta de deuda individual
+  emptyState: {
+    alignItems: 'center',
+    padding: Spacing.xxl,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginTop: Spacing.md,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+    lineHeight: 20,
+  },
+  emptyAddButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  emptyAddButtonText: {
+    color: Colors.white,
+    fontSize: 15,
+    fontWeight: '600',
+  },
   debtCard: {
-    backgroundColor: Colors.surfaceCard,
+    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.xl,
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.md,
@@ -365,8 +526,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   debtIcon: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: BorderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
@@ -375,45 +536,37 @@ const styles = StyleSheet.create({
   debtInfo: {
     flex: 1,
   },
-  debtEntity: {
-    fontSize: 16,
+  debtName: {
+    fontSize: 15,
     fontWeight: '700',
     color: Colors.textPrimary,
   },
   debtType: {
     fontSize: 12,
-    fontWeight: '500',
+    color: Colors.textSecondary,
     marginTop: 2,
   },
-  deleteButton: {
-    padding: Spacing.xs,
-  },
-  // Montos
   debtAmounts: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: Colors.surfaceAlt,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.sm,
     marginBottom: Spacing.sm,
   },
-  amountItem: {
+  debtAmountItem: {
     alignItems: 'center',
-    flex: 1,
   },
-  amountLabel: {
-    fontSize: 10,
+  debtAmountLabel: {
+    fontSize: 11,
     color: Colors.textSecondary,
-    marginBottom: 3,
+    marginBottom: 2,
   },
-  amountValue: {
-    fontSize: 13,
-    fontWeight: '700',
+  debtAmountValue: {
+    fontSize: 14,
+    fontWeight: '600',
     color: Colors.textPrimary,
   },
-  // Barra de progreso
   progressContainer: {
-    marginBottom: Spacing.sm,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   progressBar: {
     height: 6,
@@ -424,6 +577,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
+    backgroundColor: Colors.primary,
     borderRadius: 3,
   },
   progressText: {
@@ -431,79 +585,104 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'right',
   },
-  // Pie de tarjeta
-  debtFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: Spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: Colors.divider,
+  dueText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
     marginTop: Spacing.xs,
   },
-  dueDateBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  dueDateText: {
+  notesText: {
     fontSize: 12,
-    color: Colors.warning,
-    fontWeight: '500',
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+    marginTop: Spacing.xs,
   },
-  debtNotes: {
-    fontSize: 11,
-    color: Colors.textDisabled,
+  // Modal styles
+  modalContainer: {
     flex: 1,
-    textAlign: 'right',
-    marginLeft: Spacing.sm,
+    backgroundColor: Colors.background,
   },
-  // Estado vacío
-  emptyState: {
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: Spacing.xxl,
+    backgroundColor: Colors.secondary,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.md,
   },
-  emptyTitle: {
-    fontSize: 18,
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: Colors.primary,
+  },
+  modalBody: {
+    flex: 1,
+    padding: Spacing.md,
+  },
+  fieldLabel: {
+    fontSize: 14,
     fontWeight: '600',
     color: Colors.textPrimary,
+    marginBottom: Spacing.xs,
     marginTop: Spacing.md,
   },
-  emptySubtitle: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginTop: Spacing.sm,
-    lineHeight: 21,
+  typeRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingHorizontal: 2,
   },
-  emptyButton: {
+  typeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: BorderRadius.round,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    gap: 6,
+    backgroundColor: Colors.surface,
+  },
+  typeChipText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  input: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: Colors.textPrimary,
+  },
+  notesInput: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
+    padding: Spacing.md,
     marginTop: Spacing.lg,
+    gap: Spacing.sm,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
   },
-  emptyButtonText: {
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
     color: Colors.white,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  // Botón flotante
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Colors.primaryDark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
