@@ -34,7 +34,7 @@ const translateAccountType = (type) => {
   }
 };
 
-const BankAccountItem = ({ account, onPress }) => {
+const BankAccountItem = ({ account, onPress, onLongPress }) => {
   const accountColor = account.color || Colors.bankBlue;
   const icon = getAccountIcon(account.type);
   const accountType = translateAccountType(account.type);
@@ -43,6 +43,7 @@ const BankAccountItem = ({ account, onPress }) => {
     <TouchableOpacity
       style={styles.container}
       onPress={() => onPress && onPress(account)}
+      onLongPress={() => onLongPress && onLongPress(account)}
       activeOpacity={0.7}
     >
       {/* Indicador de color del banco */}

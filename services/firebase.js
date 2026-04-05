@@ -1,24 +1,16 @@
 // Configuración de Firebase para Credit Tracker App
-// IMPORTANTE: Reemplaza estos valores con tus credenciales reales de Firebase
-// Guía de configuración en SETUP_GUIDE.md
 
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-// Configuración de Firebase - USA TUS PROPIAS CREDENCIALES
-// Para obtener estas credenciales:
-// 1. Ve a https://console.firebase.google.com
-// 2. Crea un proyecto nuevo
-// 3. Agrega una app web
-// 4. Copia las credenciales aquí
 const firebaseConfig = {
-  apiKey: "TU_API_KEY_AQUI",
-  authDomain: "TU_PROJECT_ID.firebaseapp.com",
-  projectId: "TU_PROJECT_ID",
-  storageBucket: "TU_PROJECT_ID.appspot.com",
-  messagingSenderId: "TU_MESSAGING_SENDER_ID",
-  appId: "TU_APP_ID"
+  apiKey: "AIzaSyAJOyzRAFXQHsBdyczxy8VH_SL7orSw4p0",
+  authDomain: "credit-tracker-f132f.firebaseapp.com",
+  projectId: "credit-tracker-f132f",
+  storageBucket: "credit-tracker-f132f.firebasestorage.app",
+  messagingSenderId: "8557416109",
+  appId: "1:8557416109:web:65f8d287398b0c0a4d0024"
 };
 
 // Inicializar Firebase

@@ -27,15 +27,16 @@ const getUsageColor = (percent) => {
   return Colors.error;
 };
 
-const CreditCardItem = ({ card, onPress }) => {
+const CreditCardItem = ({ card, onPress, onLongPress }) => {
   const usagePercent = calculateUsagePercent(card.balance, card.creditLimit);
   const usageColor = getUsageColor(usagePercent);
-  const cardColor = card.color || Colors.primary;
+  const cardColor = card.color || Colors.cardBlue;
 
   return (
     <TouchableOpacity
       style={[styles.container, { backgroundColor: cardColor }]}
       onPress={() => onPress && onPress(card)}
+      onLongPress={() => onLongPress && onLongPress(card)}
       activeOpacity={0.85}
     >
       {/* Encabezado de la tarjeta */}

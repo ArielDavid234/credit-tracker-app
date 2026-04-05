@@ -1,7 +1,7 @@
 // Pantalla de Alertas y Notificaciones
-// Muestra alertas de pagos próximos, uso de crédito, etc.
+// Genera alertas automáticas basadas en fechas reales de tarjetas y deudas
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,12 +15,102 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
 import AlertItem from '../components/AlertItem';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { mockAlerts } from '../constants/mockData';
+import { getCurrentUser } from '../services/authService';
+import { getCreditCards } from '../services/accountService';
+import { getDebts } from '../services/debtService';
+
+// Genera alertas automáticas a partir de tarjetas y deudas reales
+const generateAlerts = (cards, debts) => {
+  const alerts = [];
+  const today = new Date();
+
+  cards.forEach((card, i) => {
+    // Alerta si el pago es en los próximos 7 días
+    if (card.dueDate) {
+      const due = new Date(card.dueDate);
+      const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+      if (diffDays >= 0 && diffDays <= 7) {
+        alerts.push({
+          id: `card_due_${card.id || i}`,
+          type: 'pago_proximo',
+          title: `Pago próximo: ${card.name || card.bankName}`,
+          message: `Tu pago de ${card.name || 'tarjeta'} vence en ${diffDays} día${diffDays !== 1 ? 's' : ''}. Monto mínimo: $${(card.minimumPayment || 0).toFixed(2)}`,
+          read: false,
+          date: card.dueDate,
+          icon: 'credit-card-clock',
+          color: diffDays <= 2 ? Colors.error : Colors.warning,
+        });
+      }
+    }
+    // Alerta si el uso de crédito supera el 70%
+    if (card.creditLimit > 0 && card.balance / card.creditLimit > 0.7) {
+      const utilization = ((card.balance / card.creditLimit) * 100).toFixed(0);
+      alerts.push({
+        id: `card_util_${card.id || i}`,
+        type: 'limite_credito',
+        title: `Uso de crédito alto: ${card.name || card.bankName}`,
+        message: `Estás usando el ${utilization}% de tu límite. Se recomienda mantenerlo por debajo del 30%.`,
+        read: false,
+        date: new Date().toISOString().slice(0, 10),
+        icon: 'chart-line',
+        color: Colors.warning,
+      });
+    }
+  });
+
+  debts.forEach((debt, i) => {
+    if (debt.dueDate) {
+      const due = new Date(debt.dueDate);
+      const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+      if (diffDays >= 0 && diffDays <= 7) {
+        alerts.push({
+          id: `debt_due_${debt.id || i}`,
+          type: 'pago_proximo',
+          title: `Pago de deuda próximo: ${debt.name}`,
+          message: `El pago de "${debt.name}" vence en ${diffDays} día${diffDays !== 1 ? 's' : ''}. Monto: $${(debt.monthlyPayment || 0).toFixed(2)}`,
+          read: false,
+          date: debt.dueDate,
+          icon: 'cash-clock',
+          color: diffDays <= 2 ? Colors.error : Colors.warning,
+        });
+      }
+    }
+  });
+
+  return alerts.sort((a, b) => new Date(a.date) - new Date(b.date));
+};
 
 const AlertsScreen = () => {
-  const [alerts, setAlerts] = useState(mockAlerts);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [alerts, setAlerts] = useState([]);
   const [activeFilter, setActiveFilter] = useState('all');
+
+  const loadAlerts = useCallback(async () => {
+    try {
+      const user = getCurrentUser();
+      if (!user) return;
+      const [cards, debts] = await Promise.all([
+        getCreditCards(user.uid),
+        getDebts(user.uid),
+      ]);
+      setAlerts(generateAlerts(cards, debts));
+    } catch (error) {
+      console.error('Error generando alertas:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAlerts();
+  }, [loadAlerts]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadAlerts();
+  };
 
   // Contar alertas no leídas
   const unreadCount = alerts.filter(a => !a.read).length;
@@ -68,11 +158,6 @@ const AlertsScreen = () => {
   // Marcar todas como leídas
   const markAllRead = () => {
     setAlerts(prev => prev.map(a => ({ ...a, read: true })));
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
   };
 
   const renderItem = ({ item }) => (
@@ -123,12 +208,13 @@ const AlertsScreen = () => {
 
   return (
     <View style={styles.container}>
+      {loading && <LoadingSpinner fullScreen message="Generando alertas..." />}
       <FlatList
         data={filteredAlerts}
         renderItem={renderItem}
         keyExtractor={item => item.id}
         ListHeaderComponent={renderHeader}
-        ListEmptyComponent={() => (
+        ListEmptyComponent={() => !loading && (
           <View style={styles.emptyState}>
             <MaterialCommunityIcons
               name="bell-check-outline"
@@ -141,7 +227,7 @@ const AlertsScreen = () => {
             <Text style={styles.emptySubtitle}>
               {activeFilter === 'unread'
                 ? 'No tienes alertas pendientes de leer'
-                : 'No hay alertas en esta categoría'}
+                : 'Agrega tarjetas o deudas con fechas de pago para ver alertas'}
             </Text>
           </View>
         )}
@@ -150,6 +236,7 @@ const AlertsScreen = () => {
             refreshing={refreshing}
             onRefresh={onRefresh}
             colors={[Colors.primary]}
+            tintColor={Colors.primary}
           />
         }
         contentContainerStyle={styles.listContent}

@@ -2,7 +2,7 @@
 // Vista central con resumen financiero del usuario
 // Muestra: balance total, tarjetas, cuentas, próximos pagos
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,49 +18,44 @@ import CreditCardItem from '../components/CreditCardItem';
 import TransactionItem from '../components/TransactionItem';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getCurrentUser } from '../services/authService';
-import { getFinancialSummary } from '../services/accountService';
-import {
-  mockCreditCards,
-  mockBankAccounts,
-  mockTransactions,
-  mockFinancialSummary,
-} from '../constants/mockData';
+import { getCreditCards, getBankAccounts, getFinancialSummary } from '../services/accountService';
+import { getTransactions } from '../services/transactionService';
 
 const DashboardScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState(null);
-  const [summary, setSummary] = useState(mockFinancialSummary);
+  const [summary, setSummary] = useState(null);
   const [recentCards, setRecentCards] = useState([]);
   const [recentTransactions, setRecentTransactions] = useState([]);
 
-  // Cargar datos al montar la pantalla
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const currentUser = getCurrentUser();
       setUser(currentUser);
+      if (!currentUser) return;
 
-      // Usar datos mock para demostración
-      // En producción, estos vendrían de Firebase/Plaid
-      setRecentCards(mockCreditCards.slice(0, 2));
-      setRecentTransactions(mockTransactions.slice(0, 5));
+      const [cards, accounts, transactions] = await Promise.all([
+        getCreditCards(currentUser.uid),
+        getBankAccounts(currentUser.uid),
+        getTransactions(currentUser.uid, { maxResults: 5 }),
+      ]);
 
-      // Calcular resumen financiero con datos mock
-      const calculatedSummary = getFinancialSummary(mockCreditCards, mockBankAccounts);
-      setSummary(calculatedSummary);
+      setRecentCards(cards.slice(0, 2));
+      setRecentTransactions(transactions);
+      setSummary(getFinancialSummary(cards, accounts));
     } catch (error) {
       console.error('Error cargando dashboard:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  // Actualizar al tirar hacia abajo
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
@@ -95,17 +90,19 @@ const DashboardScreen = ({ navigation }) => {
         </View>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('AddAccount')}
+          onPress={() => navigation.navigate('AddTransaction')}
         >
           <MaterialCommunityIcons name="plus" size={22} color={Colors.white} />
         </TouchableOpacity>
       </View>
 
       {/* Resumen de saldos */}
-      <BalanceSummary
-        summary={summary}
-        onViewDetails={() => navigation.navigate('Transactions')}
-      />
+      {summary && (
+        <BalanceSummary
+          summary={summary}
+          onViewDetails={() => navigation.navigate('Transactions')}
+        />
+      )}
 
       {/* Sección: Mis Tarjetas de Crédito */}
       <View style={styles.sectionContainer}>
@@ -165,12 +162,18 @@ const DashboardScreen = ({ navigation }) => {
               <Text style={styles.emptyText}>
                 No hay transacciones recientes
               </Text>
+              <TouchableOpacity
+                style={styles.addTxnButton}
+                onPress={() => navigation.navigate('AddTransaction')}
+              >
+                <Text style={styles.addTxnText}>+ Agregar transacción</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
       </View>
 
-      {/* Sección: Conectar nueva cuenta */}
+      {/* Sección: Acceso rápido */}
       <View style={styles.sectionContainer}>
         <TouchableOpacity
           style={styles.connectAccountCard}
@@ -179,10 +182,10 @@ const DashboardScreen = ({ navigation }) => {
           <MaterialCommunityIcons name="bank-plus" size={32} color={Colors.primary} />
           <View style={styles.connectAccountText}>
             <Text style={styles.connectAccountTitle}>
-              Conectar Cuenta Bancaria
+              Agregar Cuenta / Tarjeta
             </Text>
             <Text style={styles.connectAccountSubtitle}>
-              Usa Plaid para conectar tu banco de forma segura
+              Registra una nueva cuenta bancaria o tarjeta
             </Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.primary} />
@@ -276,6 +279,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   emptyTransactions: {
     padding: Spacing.xl,
@@ -286,10 +291,22 @@ const styles = StyleSheet.create({
     color: Colors.textDisabled,
     marginTop: Spacing.sm,
   },
+  addTxnButton: {
+    marginTop: Spacing.md,
+    backgroundColor: `${Colors.primary}20`,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.round,
+  },
+  addTxnText: {
+    fontSize: 14,
+    color: Colors.primary,
+    fontWeight: '600',
+  },
   connectAccountCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${Colors.primary}10`,
+    backgroundColor: `${Colors.primary}12`,
     borderRadius: BorderRadius.xl,
     marginHorizontal: Spacing.md,
     padding: Spacing.md,

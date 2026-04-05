@@ -1,8 +1,8 @@
 // Navegador de pestañas inferiores (Bottom Tab Navigator)
-// Contiene las 5 secciones principales de la app después de autenticarse
+// Contiene las 6 secciones principales de la app después de autenticarse
 
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -11,12 +11,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DashboardScreen from '../screens/DashboardScreen';
 import CreditCardsScreen from '../screens/CreditCardsScreen';
 import BankAccountsScreen from '../screens/BankAccountsScreen';
+import DebtsScreen from '../screens/DebtsScreen';
 import AlertsScreen from '../screens/AlertsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
 // Pantallas adicionales (accesibles desde las pestañas)
 import AddAccountScreen from '../screens/AddAccountScreen';
 import TransactionsScreen from '../screens/TransactionsScreen';
+import AddTransactionScreen from '../screens/AddTransactionScreen';
 
 // Colores
 import { Colors } from '../constants/Colors';
@@ -24,15 +26,15 @@ import { Colors } from '../constants/Colors';
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
+const headerOptions = {
+  headerStyle: { backgroundColor: Colors.secondary },
+  headerTintColor: Colors.primary,
+  headerTitleStyle: { fontWeight: 'bold', color: Colors.primary },
+};
+
 // Stack para la pestaña de Dashboard (incluye Transacciones y Agregar Cuenta)
 const DashboardStack = () => (
-  <Stack.Navigator
-    screenOptions={{
-      headerStyle: { backgroundColor: Colors.primary },
-      headerTintColor: Colors.white,
-      headerTitleStyle: { fontWeight: 'bold' },
-    }}
-  >
+  <Stack.Navigator screenOptions={headerOptions}>
     <Stack.Screen
       name="DashboardMain"
       component={DashboardScreen}
@@ -44,6 +46,11 @@ const DashboardStack = () => (
       options={{ title: 'Transacciones' }}
     />
     <Stack.Screen
+      name="AddTransaction"
+      component={AddTransactionScreen}
+      options={{ title: 'Agregar Transacción' }}
+    />
+    <Stack.Screen
       name="AddAccount"
       component={AddAccountScreen}
       options={{ title: 'Agregar Cuenta' }}
@@ -53,47 +60,50 @@ const DashboardStack = () => (
 
 // Stack para la pestaña de Tarjetas de Crédito
 const CardsStack = () => (
-  <Stack.Navigator
-    screenOptions={{
-      headerStyle: { backgroundColor: Colors.primary },
-      headerTintColor: Colors.white,
-      headerTitleStyle: { fontWeight: 'bold' },
-    }}
-  >
+  <Stack.Navigator screenOptions={headerOptions}>
     <Stack.Screen
       name="CreditCardsMain"
       component={CreditCardsScreen}
       options={{ title: 'Tarjetas de Crédito' }}
+    />
+    <Stack.Screen
+      name="AddAccount"
+      component={AddAccountScreen}
+      options={{ title: 'Agregar Tarjeta' }}
     />
   </Stack.Navigator>
 );
 
 // Stack para la pestaña de Cuentas Bancarias
 const AccountsStack = () => (
-  <Stack.Navigator
-    screenOptions={{
-      headerStyle: { backgroundColor: Colors.primary },
-      headerTintColor: Colors.white,
-      headerTitleStyle: { fontWeight: 'bold' },
-    }}
-  >
+  <Stack.Navigator screenOptions={headerOptions}>
     <Stack.Screen
       name="BankAccountsMain"
       component={BankAccountsScreen}
       options={{ title: 'Cuentas Bancarias' }}
+    />
+    <Stack.Screen
+      name="AddAccount"
+      component={AddAccountScreen}
+      options={{ title: 'Agregar Cuenta' }}
+    />
+  </Stack.Navigator>
+);
+
+// Stack para la pestaña de Deudas
+const DebtsStack = () => (
+  <Stack.Navigator screenOptions={headerOptions}>
+    <Stack.Screen
+      name="DebtsMain"
+      component={DebtsScreen}
+      options={{ title: 'Mis Deudas' }}
     />
   </Stack.Navigator>
 );
 
 // Stack para la pestaña de Alertas
 const AlertsStack = () => (
-  <Stack.Navigator
-    screenOptions={{
-      headerStyle: { backgroundColor: Colors.primary },
-      headerTintColor: Colors.white,
-      headerTitleStyle: { fontWeight: 'bold' },
-    }}
-  >
+  <Stack.Navigator screenOptions={headerOptions}>
     <Stack.Screen
       name="AlertsMain"
       component={AlertsScreen}
@@ -104,13 +114,7 @@ const AlertsStack = () => (
 
 // Stack para la pestaña de Perfil
 const ProfileStack = () => (
-  <Stack.Navigator
-    screenOptions={{
-      headerStyle: { backgroundColor: Colors.primary },
-      headerTintColor: Colors.white,
-      headerTitleStyle: { fontWeight: 'bold' },
-    }}
-  >
+  <Stack.Navigator screenOptions={headerOptions}>
     <Stack.Screen
       name="ProfileMain"
       component={ProfileScreen}
@@ -142,6 +146,9 @@ const MainTabNavigator = () => {
             case 'Cuentas':
               iconName = focused ? 'bank' : 'bank-outline';
               break;
+            case 'Deudas':
+              iconName = focused ? 'cash-multiple' : 'cash-multiple';
+              break;
             case 'Alertas':
               iconName = focused ? 'bell' : 'bell-outline';
               break;
@@ -165,6 +172,7 @@ const MainTabNavigator = () => {
       <Tab.Screen name="Dashboard" component={DashboardStack} />
       <Tab.Screen name="Tarjetas" component={CardsStack} />
       <Tab.Screen name="Cuentas" component={AccountsStack} />
+      <Tab.Screen name="Deudas" component={DebtsStack} />
       <Tab.Screen name="Alertas" component={AlertsStack} />
       <Tab.Screen name="Perfil" component={ProfileStack} />
     </Tab.Navigator>
@@ -173,7 +181,7 @@ const MainTabNavigator = () => {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
     paddingBottom: 8,
@@ -186,7 +194,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '500',
   },
 });

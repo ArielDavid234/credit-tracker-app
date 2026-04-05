@@ -15,6 +15,8 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { getCurrentUser } from '../services/authService';
+import { addCreditCard, addBankAccount } from '../services/accountService';
 
 // Opciones de tipo de cuenta
 const accountTypes = [
@@ -68,8 +70,8 @@ const AddAccountScreen = ({ navigation }) => {
     }, 1500);
   };
 
-  // Guardar cuenta manual
-  const handleSaveManual = () => {
+  // Guardar cuenta manual en Firebase
+  const handleSaveManual = async () => {
     if (!bankName || !accountName || !lastFour || !balance) {
       Alert.alert('Error', 'Por favor completa todos los campos requeridos.');
       return;
@@ -80,12 +82,45 @@ const AddAccountScreen = ({ navigation }) => {
       return;
     }
 
-    // En producción, aquí se guardaría en Firebase
-    Alert.alert(
-      'Cuenta Agregada',
-      `La cuenta "${accountName}" ha sido agregada exitosamente.`,
-      [{ text: 'OK', onPress: () => navigation.goBack() }]
-    );
+    const user = getCurrentUser();
+    if (!user) {
+      Alert.alert('Error', 'No estás autenticado.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (selectedType === 'credit') {
+        await addCreditCard(user.uid, {
+          name: accountName,
+          bankName,
+          lastFour,
+          balance: parseFloat(balance) || 0,
+          creditLimit: parseFloat(creditLimit) || 0,
+          availableCredit: (parseFloat(creditLimit) || 0) - (parseFloat(balance) || 0),
+          dueDate: dueDate || null,
+          minimumPayment: 0,
+          type: 'credit',
+        });
+      } else {
+        await addBankAccount(user.uid, {
+          name: accountName,
+          bankName,
+          lastFour,
+          balance: parseFloat(balance) || 0,
+          type: selectedType,
+        });
+      }
+      Alert.alert(
+        'Cuenta Agregada',
+        `La cuenta "${accountName}" ha sido agregada exitosamente.`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo guardar la cuenta. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {

@@ -1,7 +1,7 @@
 // Pantalla de Tarjetas de Crédito
 // Lista todas las tarjetas con saldo, límite, fecha de corte y pago mínimo
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,14 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
 import CreditCardItem from '../components/CreditCardItem';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { mockCreditCards } from '../constants/mockData';
+import { getCurrentUser } from '../services/authService';
+import { getCreditCards, deleteCreditCard } from '../services/accountService';
 
 // Formatear moneda en USD
 const formatCurrency = (amount) => {
@@ -25,20 +27,60 @@ const formatCurrency = (amount) => {
 };
 
 const CreditCardsScreen = ({ navigation }) => {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [cards, setCards] = useState(mockCreditCards);
+  const [cards, setCards] = useState([]);
+  const [userId, setUserId] = useState(null);
 
-  // Calcular totales
-  const totalDebt = cards.reduce((sum, card) => sum + card.balance, 0);
-  const totalLimit = cards.reduce((sum, card) => sum + card.creditLimit, 0);
-  const totalAvailable = cards.reduce((sum, card) => sum + card.availableCredit, 0);
+  const loadCards = useCallback(async (uid) => {
+    try {
+      const data = await getCreditCards(uid);
+      setCards(data);
+    } catch (error) {
+      console.error('Error cargando tarjetas:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (user) {
+      setUserId(user.uid);
+      loadCards(user.uid);
+    } else {
+      setLoading(false);
+    }
+  }, [loadCards]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    // En producción, aquí se recargarían los datos de Firebase
-    setTimeout(() => setRefreshing(false), 1000);
+    if (userId) loadCards(userId);
   };
+
+  const handleDelete = (cardId) => {
+    Alert.alert('Eliminar tarjeta', '¿Estás seguro que deseas eliminar esta tarjeta?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteCreditCard(userId, cardId);
+            setCards(prev => prev.filter(c => c.id !== cardId));
+          } catch {
+            Alert.alert('Error', 'No se pudo eliminar la tarjeta.');
+          }
+        },
+      },
+    ]);
+  };
+
+  // Calcular totales
+  const totalDebt = cards.reduce((sum, card) => sum + (card.balance || 0), 0);
+  const totalLimit = cards.reduce((sum, card) => sum + (card.creditLimit || 0), 0);
+  const totalAvailable = cards.reduce((sum, card) => sum + (card.availableCredit || (card.creditLimit - card.balance) || 0), 0);
 
   if (loading) {
     return <LoadingSpinner fullScreen message="Cargando tarjetas..." />;
@@ -53,6 +95,7 @@ const CreditCardsScreen = ({ navigation }) => {
             refreshing={refreshing}
             onRefresh={onRefresh}
             colors={[Colors.primary]}
+            tintColor={Colors.primary}
           />
         }
       >
@@ -87,9 +130,7 @@ const CreditCardsScreen = ({ navigation }) => {
           </Text>
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => navigation.navigate('Dashboard', {
-              screen: 'AddAccount',
-            })}
+            onPress={() => navigation.navigate('AddAccount')}
           >
             <MaterialCommunityIcons name="plus" size={18} color={Colors.primary} />
             <Text style={styles.addButtonText}>Agregar</Text>
@@ -99,7 +140,11 @@ const CreditCardsScreen = ({ navigation }) => {
         {/* Lista de tarjetas */}
         {cards.length > 0 ? (
           cards.map(card => (
-            <CreditCardItem key={card.id} card={card} />
+            <CreditCardItem
+              key={card.id}
+              card={card}
+              onLongPress={() => handleDelete(card.id)}
+            />
           ))
         ) : (
           <View style={styles.emptyState}>
@@ -142,7 +187,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   summaryContainer: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.secondary,
     padding: Spacing.md,
     marginBottom: Spacing.md,
   },

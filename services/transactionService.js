@@ -37,6 +37,29 @@ export const getTransactions = async (userId, options = {}) => {
   }
 };
 
+// Agregar una transacción manualmente
+export const addManualTransaction = async (userId, txData) => {
+  try {
+    const txRef = collection(db, 'users', userId, 'transactions');
+    const docRef = await addDoc(txRef, {
+      description: txData.description,
+      amount: txData.type === 'debito' ? -Math.abs(txData.amount) : Math.abs(txData.amount),
+      date: txData.date,
+      category: txData.category || 'Sin categoría',
+      type: txData.type,
+      accountId: txData.accountId || null,
+      notes: txData.notes || '',
+      manual: true,
+      status: 'completada',
+      createdAt: serverTimestamp(),
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error agregando transacción manual:', error);
+    throw error;
+  }
+};
+
 // Guardar transacciones obtenidas de Plaid en Firestore
 export const saveTransactions = async (userId, transactions) => {
   try {
@@ -110,6 +133,7 @@ export const formatCurrency = (amount) => {
 
 export default {
   getTransactions,
+  addManualTransaction,
   saveTransactions,
   getSpendingSummary,
   getTotalSpending,

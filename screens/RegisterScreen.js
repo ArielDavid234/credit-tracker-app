@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: {
-    backgroundColor: Colors.primaryDark || Colors.primary,
+    backgroundColor: Colors.secondary,
     paddingTop: 60,
     paddingBottom: 50,
     alignItems: 'center',
