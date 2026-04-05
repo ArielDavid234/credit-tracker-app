@@ -1,48 +1,39 @@
-// Servicio de Deudas
-// CRUD para deudas generales: autos, hipotecas, préstamos personales, etc.
+// Servicio de Deudas Generales
+// Maneja: autos, hipotecas, préstamos personales, estudiantiles, médicos, etc.
 
 import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  getDocs,
-  query,
-  orderBy,
-  serverTimestamp,
+  collection, doc, addDoc, updateDoc, deleteDoc,
+  getDocs, query, orderBy, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
 
-// Tipos de deuda disponibles
 export const DEBT_TYPES = [
   { id: 'auto', label: 'Préstamo de Auto', icon: 'car', color: '#4A6B8A' },
-  { id: 'mortgage', label: 'Hipoteca', icon: 'home', color: '#2D6A4F' },
-  { id: 'personal', label: 'Préstamo Personal', icon: 'account', color: '#B8974A' },
-  { id: 'student', label: 'Préstamo Estudiantil', icon: 'school', color: '#6A4A8A' },
-  { id: 'medical', label: 'Deuda Médica', icon: 'medical-bag', color: '#C0392B' },
-  { id: 'business', label: 'Préstamo Empresarial', icon: 'briefcase', color: '#2C2C2E' },
-  { id: 'other', label: 'Otra Deuda', icon: 'cash', color: '#6B6B7A' },
+  { id: 'hipoteca', label: 'Hipoteca / Casa', icon: 'home', color: '#4A7C59' },
+  { id: 'personal', label: 'Préstamo Personal', icon: 'account-cash', color: '#B8974A' },
+  { id: 'estudiantil', label: 'Préstamo Estudiantil', icon: 'school', color: '#6B4A8A' },
+  { id: 'medico', label: 'Deuda Médica', icon: 'hospital-box', color: '#9B3A3A' },
+  { id: 'negocio', label: 'Préstamo de Negocio', icon: 'briefcase', color: '#2C2C2E' },
+  { id: 'familiar', label: 'Deuda Familiar/Personal', icon: 'account-group', color: '#C17D3C' },
+  { id: 'otro', label: 'Otra Deuda', icon: 'dots-horizontal-circle', color: '#6B5E4E' },
 ];
 
-// Obtener todas las deudas del usuario
 export const getDebts = async (userId) => {
   try {
-    const debtsRef = collection(db, 'users', userId, 'debts');
-    const q = query(debtsRef, orderBy('createdAt', 'desc'));
+    const ref = collection(db, 'users', userId, 'debts');
+    const q = query(ref, orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (error) {
     console.error('Error obteniendo deudas:', error);
-    throw error;
+    return [];
   }
 };
 
-// Agregar una nueva deuda
 export const addDebt = async (userId, debtData) => {
   try {
-    const debtsRef = collection(db, 'users', userId, 'debts');
-    const docRef = await addDoc(debtsRef, {
+    const ref = collection(db, 'users', userId, 'debts');
+    const docRef = await addDoc(ref, {
       ...debtData,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -54,21 +45,16 @@ export const addDebt = async (userId, debtData) => {
   }
 };
 
-// Actualizar una deuda existente
 export const updateDebt = async (userId, debtId, debtData) => {
   try {
-    const debtRef = doc(db, 'users', userId, 'debts', debtId);
-    await updateDoc(debtRef, {
-      ...debtData,
-      updatedAt: serverTimestamp(),
-    });
+    const ref = doc(db, 'users', userId, 'debts', debtId);
+    await updateDoc(ref, { ...debtData, updatedAt: serverTimestamp() });
   } catch (error) {
     console.error('Error actualizando deuda:', error);
     throw error;
   }
 };
 
-// Eliminar una deuda
 export const deleteDebt = async (userId, debtId) => {
   try {
     await deleteDoc(doc(db, 'users', userId, 'debts', debtId));
@@ -78,18 +64,18 @@ export const deleteDebt = async (userId, debtId) => {
   }
 };
 
-// Calcular el resumen de deudas
+export const getTotalDebtSummary = (debts) => {
+  const totalOwed = debts.reduce((sum, d) => sum + (d.remainingBalance || d.balance || 0), 0);
+  const totalOriginal = debts.reduce((sum, d) => sum + (d.originalAmount || 0), 0);
+  const totalMonthlyPayment = debts.reduce((sum, d) => sum + (d.monthlyPayment || 0), 0);
+  return { totalOwed, totalOriginal, totalMonthlyPayment, count: debts.length };
+};
+
+// Alias for backwards compatibility
 export const getDebtSummary = (debts) => {
-  const totalOwed = debts.reduce((sum, d) => sum + (d.balance || 0), 0);
+  const totalOwed = debts.reduce((sum, d) => sum + (d.remainingBalance || d.balance || 0), 0);
   const totalMonthly = debts.reduce((sum, d) => sum + (d.monthlyPayment || 0), 0);
   return { totalOwed, totalMonthly, count: debts.length };
 };
 
-export default {
-  getDebts,
-  addDebt,
-  updateDebt,
-  deleteDebt,
-  getDebtSummary,
-  DEBT_TYPES,
-};
+export default { getDebts, addDebt, updateDebt, deleteDebt, getTotalDebtSummary, getDebtSummary, DEBT_TYPES };

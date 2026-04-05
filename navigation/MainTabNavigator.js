@@ -130,8 +130,8 @@ const MainTabNavigator = () => {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textSecondary,
+        tabBarActiveTintColor: '#B8974A',
+        tabBarInactiveTintColor: 'rgba(255,255,255,0.4)',
         tabBarLabelStyle: styles.tabLabel,
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
@@ -177,9 +177,9 @@ const MainTabNavigator = () => {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.secondary,
     borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    borderTopColor: 'rgba(184,151,74,0.3)',
     paddingBottom: 8,
     paddingTop: 6,
     height: 62,

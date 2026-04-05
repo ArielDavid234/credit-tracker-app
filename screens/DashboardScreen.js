@@ -1,6 +1,5 @@
 // Pantalla Principal - Dashboard
 // Vista central con resumen financiero del usuario
-// Muestra: balance total, tarjetas, cuentas, próximos pagos
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -20,6 +19,10 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import { getCurrentUser } from '../services/authService';
 import { getCreditCards, getBankAccounts, getFinancialSummary } from '../services/accountService';
 import { getTransactions } from '../services/transactionService';
+import { getDebts, getTotalDebtSummary } from '../services/debtService';
+
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
 
 const DashboardScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
@@ -28,6 +31,7 @@ const DashboardScreen = ({ navigation }) => {
   const [summary, setSummary] = useState(null);
   const [recentCards, setRecentCards] = useState([]);
   const [recentTransactions, setRecentTransactions] = useState([]);
+  const [debtSummary, setDebtSummary] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -35,15 +39,17 @@ const DashboardScreen = ({ navigation }) => {
       setUser(currentUser);
       if (!currentUser) return;
 
-      const [cards, accounts, transactions] = await Promise.all([
+      const [cards, accounts, transactions, debts] = await Promise.all([
         getCreditCards(currentUser.uid),
         getBankAccounts(currentUser.uid),
         getTransactions(currentUser.uid, { maxResults: 5 }),
+        getDebts(currentUser.uid),
       ]);
 
       setRecentCards(cards.slice(0, 2));
       setRecentTransactions(transactions);
       setSummary(getFinancialSummary(cards, accounts));
+      setDebtSummary(getTotalDebtSummary(debts));
     } catch (error) {
       console.error('Error cargando dashboard:', error);
     } finally {
@@ -104,6 +110,41 @@ const DashboardScreen = ({ navigation }) => {
         />
       )}
 
+      {/* Sección: Resumen de Deudas */}
+      {debtSummary && debtSummary.count > 0 && (
+        <TouchableOpacity
+          style={styles.debtCard}
+          onPress={() => navigation.navigate('Deudas')}
+          activeOpacity={0.85}
+        >
+          <View style={styles.debtCardHeader}>
+            <MaterialCommunityIcons name="cash-multiple" size={22} color={Colors.primary} />
+            <Text style={styles.debtCardTitle}>Resumen de Deudas</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.primary} />
+          </View>
+          <View style={styles.debtMetrics}>
+            <View style={styles.debtMetric}>
+              <Text style={styles.debtMetricLabel}>Total adeudado</Text>
+              <Text style={[styles.debtMetricValue, { color: Colors.error }]}>
+                {formatCurrency(debtSummary.totalOwed)}
+              </Text>
+            </View>
+            <View style={styles.debtMetricDivider} />
+            <View style={styles.debtMetric}>
+              <Text style={styles.debtMetricLabel}>Pago mensual</Text>
+              <Text style={[styles.debtMetricValue, { color: Colors.primary }]}>
+                {formatCurrency(debtSummary.totalMonthlyPayment)}
+              </Text>
+            </View>
+            <View style={styles.debtMetricDivider} />
+            <View style={styles.debtMetric}>
+              <Text style={styles.debtMetricLabel}>Deudas</Text>
+              <Text style={styles.debtMetricValue}>{debtSummary.count}</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
+
       {/* Sección: Mis Tarjetas de Crédito */}
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
@@ -131,9 +172,7 @@ const DashboardScreen = ({ navigation }) => {
               size={40}
               color={Colors.textDisabled}
             />
-            <Text style={styles.emptyCardText}>
-              Agrega tu primera tarjeta
-            </Text>
+            <Text style={styles.emptyCardText}>Agrega tu primera tarjeta</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -159,9 +198,7 @@ const DashboardScreen = ({ navigation }) => {
                 size={36}
                 color={Colors.textDisabled}
               />
-              <Text style={styles.emptyText}>
-                No hay transacciones recientes
-              </Text>
+              <Text style={styles.emptyText}>No hay transacciones recientes</Text>
               <TouchableOpacity
                 style={styles.addTxnButton}
                 onPress={() => navigation.navigate('AddTransaction')}
@@ -173,17 +210,15 @@ const DashboardScreen = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Sección: Acceso rápido */}
-      <View style={styles.sectionContainer}>
+      {/* Acceso rápido */}
+      <View style={[styles.sectionContainer, { marginBottom: Spacing.xl }]}>
         <TouchableOpacity
           style={styles.connectAccountCard}
           onPress={() => navigation.navigate('AddAccount')}
         >
-          <MaterialCommunityIcons name="bank-plus" size={32} color={Colors.primary} />
-          <View style={styles.connectAccountText}>
-            <Text style={styles.connectAccountTitle}>
-              Agregar Cuenta / Tarjeta
-            </Text>
+          <MaterialCommunityIcons name="bank-plus" size={28} color={Colors.primary} />
+          <View style={{ flex: 1, marginLeft: Spacing.md }}>
+            <Text style={styles.connectAccountTitle}>Agregar Cuenta / Tarjeta</Text>
             <Text style={styles.connectAccountSubtitle}>
               Registra una nueva cuenta bancaria o tarjeta
             </Text>
@@ -191,9 +226,6 @@ const DashboardScreen = ({ navigation }) => {
           <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.primary} />
         </TouchableOpacity>
       </View>
-
-      {/* Espaciado al final */}
-      <View style={{ height: Spacing.xl }} />
     </ScrollView>
   );
 };
@@ -233,6 +265,53 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 5,
     elevation: 5,
+  },
+  debtCard: {
+    backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.xl,
+    marginHorizontal: Spacing.md,
+    marginTop: Spacing.lg,
+    padding: Spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  debtCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  debtCardTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.white,
+    marginLeft: Spacing.sm,
+  },
+  debtMetrics: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  debtMetric: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  debtMetricLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+    marginBottom: 3,
+  },
+  debtMetricValue: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: Colors.white,
+  },
+  debtMetricDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   sectionContainer: {
     marginTop: Spacing.lg,
@@ -305,17 +384,11 @@ const styles = StyleSheet.create({
   },
   connectAccountCard: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: Spacing.md,
-    marginTop: Spacing.xs,
-  },
-  quickAction: {
     alignItems: 'center',
-    backgroundColor: `${Colors.primary}12`,
+    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.xl,
+    marginHorizontal: Spacing.md,
     padding: Spacing.md,
-    flex: 1,
-    marginHorizontal: 4,
     borderWidth: 1,
     borderColor: Colors.border,
     shadowColor: '#000',
@@ -324,12 +397,15 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  quickActionText: {
-    fontSize: 11,
+  connectAccountTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  connectAccountSubtitle: {
+    fontSize: 12,
     color: Colors.textSecondary,
-    marginTop: 6,
-    textAlign: 'center',
-    fontWeight: '500',
+    marginTop: 2,
   },
 });
 
