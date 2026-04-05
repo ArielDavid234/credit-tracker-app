@@ -160,11 +160,7 @@ const MainTabNavigator = () => {
           }
 
           return (
-            <MaterialCommunityIcons
-              name={iconName}
-              size={size || 24}
-              color={color}
-            />
+            <MaterialCommunityIcons name={iconName} size={size || 24} color={color} />
           );
         },
       })}
@@ -200,3 +196,4 @@ const styles = StyleSheet.create({
 });
 
 export default MainTabNavigator;
+

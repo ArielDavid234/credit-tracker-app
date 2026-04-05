@@ -305,27 +305,31 @@ const styles = StyleSheet.create({
   },
   connectAccountCard: {
     flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  quickAction: {
     alignItems: 'center',
     backgroundColor: `${Colors.primary}12`,
     borderRadius: BorderRadius.xl,
-    marginHorizontal: Spacing.md,
     padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: `${Colors.primary}30`,
-  },
-  connectAccountText: {
     flex: 1,
-    marginLeft: Spacing.md,
+    marginHorizontal: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  connectAccountTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.primary,
-  },
-  connectAccountSubtitle: {
-    fontSize: 12,
+  quickActionText: {
+    fontSize: 11,
     color: Colors.textSecondary,
-    marginTop: 2,
+    marginTop: 6,
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });
 

@@ -139,22 +139,6 @@ const AlertsScreen = () => {
     }
   };
 
-  // Descartar/eliminar una alerta
-  const handleDismiss = (alertId) => {
-    Alert.alert(
-      'Eliminar alerta',
-      '¿Deseas eliminar esta alerta?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: () => setAlerts(prev => prev.filter(a => a.id !== alertId)),
-        },
-      ]
-    );
-  };
-
   // Marcar todas como leídas
   const markAllRead = () => {
     setAlerts(prev => prev.map(a => ({ ...a, read: true })));
@@ -164,13 +148,12 @@ const AlertsScreen = () => {
     <AlertItem
       alert={item}
       onPress={handleAlertPress}
-      onDismiss={handleDismiss}
+      onDismiss={() => setAlerts(prev => prev.filter(a => a.id !== item.id))}
     />
   );
 
   const renderHeader = () => (
     <View>
-      {/* Resumen de alertas */}
       {unreadCount > 0 && (
         <View style={styles.unreadBanner}>
           <MaterialCommunityIcons name="bell-ring" size={20} color={Colors.warning} />
@@ -183,7 +166,6 @@ const AlertsScreen = () => {
         </View>
       )}
 
-      {/* Filtros */}
       <View style={styles.filtersContainer}>
         {filterOptions.map(filter => (
           <TouchableOpacity
@@ -216,11 +198,7 @@ const AlertsScreen = () => {
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={() => !loading && (
           <View style={styles.emptyState}>
-            <MaterialCommunityIcons
-              name="bell-check-outline"
-              size={72}
-              color={Colors.textDisabled}
-            />
+            <MaterialCommunityIcons name="bell-check-outline" size={72} color={Colors.textDisabled} />
             <Text style={styles.emptyTitle}>
               {activeFilter === 'unread' ? '¡Todo al día!' : 'Sin alertas'}
             </Text>

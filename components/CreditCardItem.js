@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   dueDateValue: {
-    color: '#FFD54F',
+    color: Colors.primaryGlow,
   },
 });
 

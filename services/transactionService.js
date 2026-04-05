@@ -5,6 +5,8 @@ import {
   collection,
   addDoc,
   getDocs,
+  deleteDoc,
+  doc,
   query,
   orderBy,
   limit,
@@ -27,9 +29,9 @@ export const getTransactions = async (userId, options = {}) => {
     }
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
+    return snapshot.docs.map(d => ({
+      id: d.id,
+      ...d.data(),
     }));
   } catch (error) {
     console.error('Error obteniendo transacciones:', error);
@@ -139,3 +141,4 @@ export default {
   getTotalSpending,
   formatCurrency,
 };
+

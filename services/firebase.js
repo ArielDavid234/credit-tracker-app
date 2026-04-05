@@ -20,11 +20,4 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);        // Autenticación
 export const db = getFirestore(app);     // Base de datos Firestore
 
-// Estructura de Firestore:
-// users/{userId}                    - Datos del usuario
-// users/{userId}/accounts           - Cuentas bancarias
-// users/{userId}/creditCards        - Tarjetas de crédito
-// users/{userId}/transactions       - Transacciones
-// users/{userId}/alerts             - Alertas y notificaciones
-
 export default app;

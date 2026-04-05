@@ -8,6 +8,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert,
   RefreshControl,
   Alert,
 } from 'react-native';
@@ -157,23 +158,28 @@ const CreditCardsScreen = ({ navigation }) => {
             <Text style={styles.emptySubtitle}>
               Agrega tus tarjetas para monitorear tus saldos y fechas de pago
             </Text>
-            <TouchableOpacity style={styles.emptyButton}>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={() => navigation.navigate('Dashboard', { screen: 'AddAccount' })}
+            >
               <Text style={styles.emptyButtonText}>+ Agregar Tarjeta</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {/* Sección: Consejos de crédito */}
-        <View style={styles.tipsSection}>
-          <Text style={styles.tipsTitle}>💡 Consejo de Crédito</Text>
-          <Text style={styles.tipsText}>
-            Mantén tu utilización de crédito por debajo del 30% para mantener
-            un buen puntaje crediticio. Actualmente tu utilización es:{' '}
-            <Text style={styles.tipsBold}>
-              {totalLimit > 0 ? ((totalDebt / totalLimit) * 100).toFixed(1) : 0}%
+        {cards.length > 0 && (
+          <View style={styles.tipsSection}>
+            <Text style={styles.tipsTitle}>💡 Consejo de Crédito</Text>
+            <Text style={styles.tipsText}>
+              Mantén tu utilización de crédito por debajo del 30% para mantener
+              un buen puntaje crediticio. Actualmente tu utilización es:{' '}
+              <Text style={styles.tipsBold}>
+                {totalLimit > 0 ? ((totalDebt / totalLimit) * 100).toFixed(1) : 0}%
+              </Text>
             </Text>
-          </Text>
-        </View>
+          </View>
+        )}
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
@@ -202,18 +208,18 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.7)',
     marginBottom: 4,
   },
   summaryValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: Colors.white,
+    color: Colors.primary,
   },
   summaryDivider: {
     width: 1,
     height: 40,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   listHeader: {
     flexDirection: 'row',
@@ -230,7 +236,7 @@ const styles = StyleSheet.create({
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${Colors.primary}15`,
+    backgroundColor: `${Colors.primary}18`,
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
     borderRadius: BorderRadius.round,
@@ -240,6 +246,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.primary,
     fontWeight: '600',
+  },
+  cardWrapper: {
+    position: 'relative',
+  },
+  deleteButton: {
+    position: 'absolute',
+    top: 12,
+    right: 24,
+    backgroundColor: `${Colors.error}15`,
+    borderRadius: BorderRadius.md,
+    padding: 6,
   },
   emptyState: {
     alignItems: 'center',
@@ -271,18 +288,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tipsSection: {
-    backgroundColor: `${Colors.info}10`,
+    backgroundColor: `${Colors.primary}12`,
     borderRadius: BorderRadius.xl,
     marginHorizontal: Spacing.md,
     padding: Spacing.md,
     marginTop: Spacing.lg,
     borderLeftWidth: 4,
-    borderLeftColor: Colors.info,
+    borderLeftColor: Colors.primary,
   },
   tipsTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.info,
+    color: Colors.primary,
     marginBottom: Spacing.xs,
   },
   tipsText: {

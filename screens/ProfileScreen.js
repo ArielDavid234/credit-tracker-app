@@ -1,7 +1,8 @@
 // Pantalla de Perfil del Usuario
 // Muestra información del usuario y opciones de configuración
+// Carga estadísticas reales desde Firebase
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +15,9 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
 import { getCurrentUser, logoutUser } from '../services/authService';
+import { getCreditCards, getBankAccounts } from '../services/accountService';
+import { getTransactions } from '../services/transactionService';
+import { getDebts } from '../services/debtService';
 
 // Componente de fila de configuración
 const SettingRow = ({ icon, iconColor, title, subtitle, onPress, rightElement }) => (
@@ -35,6 +39,33 @@ const ProfileScreen = () => {
   const user = getCurrentUser();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+
+  // Estadísticas reales del usuario
+  const [stats, setStats] = useState({ cards: 0, accounts: 0, transactions: 0, debts: 0 });
+
+  // Cargar estadísticas reales desde Firebase
+  useEffect(() => {
+    const loadStats = async () => {
+      if (!user) return;
+      try {
+        const [cards, accounts, transactions, debts] = await Promise.all([
+          getCreditCards(user.uid).catch(() => []),
+          getBankAccounts(user.uid).catch(() => []),
+          getTransactions(user.uid, { maxResults: 100 }).catch(() => []),
+          getDebts(user.uid).catch(() => []),
+        ]);
+        setStats({
+          cards: cards.length,
+          accounts: accounts.length,
+          transactions: transactions.length,
+          debts: debts.length,
+        });
+      } catch (error) {
+        console.error('Error cargando estadísticas:', error);
+      }
+    };
+    loadStats();
+  }, []);
 
   // Obtener iniciales del nombre para el avatar
   const getInitials = (name) => {
@@ -102,18 +133,23 @@ const ProfileScreen = () => {
       {/* Estadísticas del usuario */}
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>3</Text>
+          <Text style={styles.statValue}>{stats.cards}</Text>
           <Text style={styles.statLabel}>Tarjetas</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>3</Text>
+          <Text style={styles.statValue}>{stats.accounts}</Text>
           <Text style={styles.statLabel}>Cuentas</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>8</Text>
+          <Text style={styles.statValue}>{stats.transactions}</Text>
           <Text style={styles.statLabel}>Transacciones</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{stats.debts}</Text>
+          <Text style={styles.statLabel}>Deudas</Text>
         </View>
       </View>
 
