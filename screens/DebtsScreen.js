@@ -28,11 +28,6 @@ import {
 const formatCurrency = (amount) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
 
-const CATEGORIES = [
-  'Supermercado', 'Restaurantes', 'Gasolina', 'Transporte', 'Entretenimiento',
-  'Salud', 'Ropa', 'Hogar', 'Servicios', 'Educación', 'Viajes', 'Otros',
-];
-
 const DebtsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

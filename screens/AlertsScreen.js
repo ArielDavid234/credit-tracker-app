@@ -19,6 +19,19 @@ import { getCurrentUser } from '../services/authService';
 import { getCreditCards } from '../services/accountService';
 import { getDebts } from '../services/debtService';
 
+const formatMoney = (amount) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
+
+// Calcular días hasta el próximo vencimiento por día del mes
+const calculateDaysUntilDueDay = (dueDay, today) => {
+  const todayDay = today.getDate();
+  if (dueDay >= todayDay) {
+    return dueDay - todayDay;
+  }
+  const nextDue = new Date(today.getFullYear(), today.getMonth() + 1, dueDay);
+  return Math.ceil((nextDue - today) / (1000 * 60 * 60 * 24));
+};
+
 // Generar alertas automáticas a partir de tarjetas de crédito y deudas
 const generateAlerts = (creditCards, debts) => {
   const alerts = [];
@@ -72,16 +85,14 @@ const generateAlerts = (creditCards, debts) => {
   debts.forEach((debt, idx) => {
     if (debt.dueDay) {
       const dueDay = parseInt(debt.dueDay, 10);
-      const todayDay = today.getDate();
-      const daysUntil = dueDay >= todayDay ? dueDay - todayDay : (new Date(today.getFullYear(), today.getMonth() + 1, dueDay) - today) / (1000 * 60 * 60 * 24);
-      const daysLeft = Math.ceil(daysUntil);
+      const daysLeft = calculateDaysUntilDueDay(dueDay, today);
 
       if (daysLeft >= 0 && daysLeft <= 7) {
         alerts.push({
           id: `debt-due-${debt.id || idx}`,
           type: 'pago_proximo',
           title: `Pago próximo - ${debt.creditorName}`,
-          message: `Tu pago de ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(debt.monthlyPayment)} vence en ${daysLeft} día${daysLeft !== 1 ? 's' : ''} (día ${debt.dueDay})`,
+          message: `Tu pago de ${formatMoney(debt.monthlyPayment)} vence en ${daysLeft} día${daysLeft !== 1 ? 's' : ''} (día ${debt.dueDay})`,
           date: today.toISOString().split('T')[0],
           amount: parseFloat(debt.monthlyPayment) || 0,
           accountId: debt.id,
