@@ -5,6 +5,8 @@ import {
   collection,
   addDoc,
   getDocs,
+  deleteDoc,
+  doc,
   query,
   orderBy,
   limit,
@@ -27,9 +29,9 @@ export const getTransactions = async (userId, options = {}) => {
     }
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
+    return snapshot.docs.map(d => ({
+      id: d.id,
+      ...d.data(),
     }));
   } catch (error) {
     console.error('Error obteniendo transacciones:', error);
@@ -37,33 +39,58 @@ export const getTransactions = async (userId, options = {}) => {
   }
 };
 
-// Guardar transacciones obtenidas de Plaid o agregadas manualmente en Firestore
+// Agregar una transacción manualmente
+export const addTransaction = async (userId, transactionData) => {
+  try {
+    const txRef = collection(db, 'users', userId, 'transactions');
+    const amount = parseFloat(transactionData.amount) || 0;
+    const docRef = await addDoc(txRef, {
+      description: transactionData.description || '',
+      amount: transactionData.type === 'debito' ? -Math.abs(amount) : Math.abs(amount),
+      date: transactionData.date || new Date().toISOString().split('T')[0],
+      category: transactionData.category || 'Sin categoría',
+      merchant: transactionData.merchant || transactionData.description || '',
+      accountId: transactionData.accountId || '',
+      status: 'completada',
+      type: transactionData.type || 'debito',
+      manual: true,
+      createdAt: serverTimestamp(),
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error agregando transacción:', error);
+    throw error;
+  }
+};
+
+// Eliminar una transacción
+export const deleteTransaction = async (userId, transactionId) => {
+  try {
+    await deleteDoc(doc(db, 'users', userId, 'transactions', transactionId));
+  } catch (error) {
+    console.error('Error eliminando transacción:', error);
+    throw error;
+  }
+};
+
+// Guardar transacciones obtenidas de Plaid en Firestore
 export const saveTransactions = async (userId, transactions) => {
   try {
     const txRef = collection(db, 'users', userId, 'transactions');
     const batch = [];
 
     for (const transaction of transactions) {
-      // Para transacciones manuales el monto ya viene con el signo correcto
-      // (negativo = gasto, positivo = ingreso).
-      // Para Plaid: amount > 0 significa débito, se niega para mantener
-      // la convención interna (negativo = gasto).
-      const isManual = transaction.manual === true;
-      const amount = isManual
-        ? transaction.amount                 // Ya viene con signo correcto
-        : -transaction.amount;               // Plaid usa positivo para débitos
-
       batch.push(addDoc(txRef, {
-        plaidTransactionId: isManual ? null : transaction.transaction_id,
-        accountId: transaction.account_id || 'manual',
+        plaidTransactionId: transaction.transaction_id,
+        accountId: transaction.account_id,
         description: transaction.name,
-        amount,
+        amount: -transaction.amount, // Plaid usa positivo para débitos
         date: transaction.date,
         category: transaction.category?.[0] || 'Sin categoría',
         merchant: transaction.merchant_name || transaction.name,
         status: 'completada',
-        type: amount >= 0 ? 'credito' : 'debito',
-        manual: isManual,
+        // Después de negar el monto de Plaid: positivo = crédito (ingreso), negativo = débito (gasto)
+        type: transaction.amount > 0 ? 'credito' : 'debito',
         createdAt: serverTimestamp(),
       }));
     }
@@ -119,8 +146,11 @@ export const formatCurrency = (amount) => {
 
 export default {
   getTransactions,
+  addTransaction,
+  deleteTransaction,
   saveTransactions,
   getSpendingSummary,
   getTotalSpending,
   formatCurrency,
 };
+

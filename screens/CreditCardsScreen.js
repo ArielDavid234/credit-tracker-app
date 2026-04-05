@@ -1,6 +1,5 @@
 // Pantalla de Tarjetas de Crédito
 // Lista todas las tarjetas con saldo, límite, fecha de corte y pago mínimo
-// Conectada a Firebase Firestore para datos reales
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -9,8 +8,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  RefreshControl,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
@@ -18,7 +17,6 @@ import CreditCardItem from '../components/CreditCardItem';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getCurrentUser } from '../services/authService';
 import { getCreditCards, deleteCreditCard } from '../services/accountService';
-import { mockCreditCards } from '../constants/mockData';
 
 // Formatear moneda en USD
 const formatCurrency = (amount) => {
@@ -33,41 +31,33 @@ const CreditCardsScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [cards, setCards] = useState([]);
 
-  // Cargar tarjetas desde Firebase al montar
-  useEffect(() => {
-    loadCards();
-  }, []);
-
-  const loadCards = async () => {
+  const loadCards = useCallback(async () => {
     try {
-      const currentUser = getCurrentUser();
-      if (currentUser) {
-        const data = await getCreditCards(currentUser.uid);
-        // Usar mock data como fallback si no hay datos en Firebase
-        setCards(data.length > 0 ? data : mockCreditCards);
-      } else {
-        setCards(mockCreditCards);
-      }
+      const user = getCurrentUser();
+      if (!user) return;
+      const data = await getCreditCards(user.uid);
+      setCards(data);
     } catch (error) {
       console.error('Error cargando tarjetas:', error);
-      setCards(mockCreditCards);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  // Actualizar al tirar hacia abajo
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    loadCards();
   }, []);
 
-  // Confirmar y eliminar una tarjeta
-  const handleDeleteCard = (cardId, cardName) => {
+  useEffect(() => {
+    loadCards();
+  }, [loadCards]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadCards();
+  };
+
+  const handleDelete = (cardId, cardName) => {
     Alert.alert(
-      'Eliminar Tarjeta',
-      `¿Deseas eliminar la tarjeta "${cardName}"?`,
+      'Eliminar tarjeta',
+      `¿Deseas eliminar "${cardName}"?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -75,12 +65,10 @@ const CreditCardsScreen = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              const currentUser = getCurrentUser();
-              if (currentUser) {
-                await deleteCreditCard(currentUser.uid, cardId);
-                setCards((prev) => prev.filter((c) => c.id !== cardId));
-              }
-            } catch (error) {
+              const user = getCurrentUser();
+              await deleteCreditCard(user.uid, cardId);
+              await loadCards();
+            } catch {
               Alert.alert('Error', 'No se pudo eliminar la tarjeta.');
             }
           },
@@ -89,14 +77,14 @@ const CreditCardsScreen = ({ navigation }) => {
     );
   };
 
+  // Calcular totales
+  const totalDebt = cards.reduce((sum, card) => sum + (parseFloat(card.balance) || 0), 0);
+  const totalLimit = cards.reduce((sum, card) => sum + (parseFloat(card.creditLimit) || 0), 0);
+  const totalAvailable = cards.reduce((sum, card) => sum + (parseFloat(card.availableCredit) || 0), 0);
+
   if (loading) {
     return <LoadingSpinner fullScreen message="Cargando tarjetas..." />;
   }
-
-  // Calcular totales con los datos cargados
-  const totalDebt = cards.reduce((sum, card) => sum + (card.balance || 0), 0);
-  const totalLimit = cards.reduce((sum, card) => sum + (card.creditLimit || 0), 0);
-  const totalAvailable = cards.reduce((sum, card) => sum + (card.availableCredit || 0), 0);
 
   return (
     <View style={styles.container}>
@@ -107,6 +95,7 @@ const CreditCardsScreen = ({ navigation }) => {
             refreshing={refreshing}
             onRefresh={onRefresh}
             colors={[Colors.primary]}
+            tintColor={Colors.primary}
           />
         }
       >
@@ -141,9 +130,7 @@ const CreditCardsScreen = ({ navigation }) => {
           </Text>
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => navigation.navigate('Dashboard', {
-              screen: 'AddAccount',
-            })}
+            onPress={() => navigation.navigate('Dashboard', { screen: 'AddAccount' })}
           >
             <MaterialCommunityIcons name="plus" size={18} color={Colors.primary} />
             <Text style={styles.addButtonText}>Agregar</Text>
@@ -156,8 +143,8 @@ const CreditCardsScreen = ({ navigation }) => {
             <View key={card.id} style={styles.cardWrapper}>
               <CreditCardItem card={card} />
               <TouchableOpacity
-                style={styles.cardDeleteBtn}
-                onPress={() => handleDeleteCard(card.id, card.name)}
+                style={styles.deleteButton}
+                onPress={() => handleDelete(card.id, card.name)}
               >
                 <MaterialCommunityIcons name="trash-can-outline" size={18} color={Colors.error} />
               </TouchableOpacity>
@@ -174,23 +161,28 @@ const CreditCardsScreen = ({ navigation }) => {
             <Text style={styles.emptySubtitle}>
               Agrega tus tarjetas para monitorear tus saldos y fechas de pago
             </Text>
-            <TouchableOpacity style={styles.emptyButton}>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={() => navigation.navigate('Dashboard', { screen: 'AddAccount' })}
+            >
               <Text style={styles.emptyButtonText}>+ Agregar Tarjeta</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {/* Sección: Consejos de crédito */}
-        <View style={styles.tipsSection}>
-          <Text style={styles.tipsTitle}>💡 Consejo de Crédito</Text>
-          <Text style={styles.tipsText}>
-            Mantén tu utilización de crédito por debajo del 30% para mantener
-            un buen puntaje crediticio. Actualmente tu utilización es:{' '}
-            <Text style={styles.tipsBold}>
-              {totalLimit > 0 ? ((totalDebt / totalLimit) * 100).toFixed(1) : 0}%
+        {cards.length > 0 && (
+          <View style={styles.tipsSection}>
+            <Text style={styles.tipsTitle}>💡 Consejo de Crédito</Text>
+            <Text style={styles.tipsText}>
+              Mantén tu utilización de crédito por debajo del 30% para mantener
+              un buen puntaje crediticio. Actualmente tu utilización es:{' '}
+              <Text style={styles.tipsBold}>
+                {totalLimit > 0 ? ((totalDebt / totalLimit) * 100).toFixed(1) : 0}%
+              </Text>
             </Text>
-          </Text>
-        </View>
+          </View>
+        )}
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
@@ -202,20 +194,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  // Wrapper para cada tarjeta con botón de eliminar
-  cardWrapper: {
-    position: 'relative',
-  },
-  cardDeleteBtn: {
-    position: 'absolute',
-    top: 12,
-    right: 24,
-    backgroundColor: Colors.surfaceAlt,
-    borderRadius: 20,
-    padding: 6,
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
   summaryContainer: {
     backgroundColor: Colors.secondary,
@@ -239,12 +217,12 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: Colors.white,
+    color: Colors.primary,
   },
   summaryDivider: {
     width: 1,
     height: 40,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   listHeader: {
     flexDirection: 'row',
@@ -261,7 +239,7 @@ const styles = StyleSheet.create({
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${Colors.primary}15`,
+    backgroundColor: `${Colors.primary}18`,
     paddingHorizontal: Spacing.md,
     paddingVertical: 6,
     borderRadius: BorderRadius.round,
@@ -271,6 +249,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.primary,
     fontWeight: '600',
+  },
+  cardWrapper: {
+    position: 'relative',
+  },
+  deleteButton: {
+    position: 'absolute',
+    top: 12,
+    right: 24,
+    backgroundColor: `${Colors.error}15`,
+    borderRadius: BorderRadius.md,
+    padding: 6,
   },
   emptyState: {
     alignItems: 'center',
@@ -302,18 +291,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tipsSection: {
-    backgroundColor: `${Colors.info}10`,
+    backgroundColor: `${Colors.primary}12`,
     borderRadius: BorderRadius.xl,
     marginHorizontal: Spacing.md,
     padding: Spacing.md,
     marginTop: Spacing.lg,
     borderLeftWidth: 4,
-    borderLeftColor: Colors.info,
+    borderLeftColor: Colors.primary,
   },
   tipsTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: Colors.info,
+    color: Colors.primary,
     marginBottom: Spacing.xs,
   },
   tipsText: {
