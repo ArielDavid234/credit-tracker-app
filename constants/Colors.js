@@ -1,59 +1,63 @@
-// Paleta de colores de la aplicación Credit Tracker
-// Tema premium: dorado, beige cálido, carbón
+// Paleta de colores premium — Credit Tracker App
+// Tema dorado/beige de lujo financiero
 
 export const Colors = {
-  // Colores primarios — dorado premium
-  primary: '#B8974A',        // Dorado principal
-  primaryLight: '#CEB06A',   // Dorado claro
-  primaryDark: '#8B6E2E',    // Dorado oscuro
+  // Colores primarios premium (dorado/champagne)
+  primary: '#B8974A',
+  primaryLight: '#D4AF6A',
+  primaryDark: '#8B6914',
+  primaryGlow: '#F0D080',
 
-  // Colores secundarios — carbón elegante
-  secondary: '#2C2C2E',      // Carbón oscuro
-  secondaryLight: '#48484A', // Carbón claro
-  secondaryDark: '#1C1C1E',  // Casi negro
+  // Secundario (carbón/grafito elegante)
+  secondary: '#2C2C2E',
+  secondaryLight: '#48484A',
+  secondaryDark: '#1C1C1E',
 
-  // Colores de acento
-  accent: '#B8974A',         // Dorado (igual que primary)
+  // Acento
+  accent: '#C9A96E',
 
-  // Colores de estado
-  success: '#4CAF7A',        // Verde salvia
-  warning: '#E8A740',        // Ámbar cálido
-  error: '#C0392B',          // Rojo profundo
-  info: '#4A6B8A',           // Azul marino suave
+  // Estados
+  success: '#4A7C59',
+  warning: '#C17D3C',
+  error: '#9B3A3A',
+  info: '#4A6B8A',
 
-  // Neutros cálidos
+  // Fondos premium
+  background: '#F8F5F0',
+  surface: '#FFFFFF',
+  surfaceAlt: '#F5EFE6',
+  surfaceCard: '#FDFAF6',
+
+  // Bordes
+  border: '#E8DFD0',
+  divider: '#F0E8DC',
+  borderGold: '#D4AF6A',
+
+  // Básicos
   white: '#FFFFFF',
   black: '#000000',
-  background: '#F8F5F0',     // Beige muy claro (fondo principal)
-  surface: '#FDFAF6',        // Blanco cálido (tarjetas)
-  surfaceCard: '#FFFFFF',    // Blanco puro
-  border: '#E8DFD0',         // Beige borde
-  divider: '#EDE8E0',        // Divisores beige
 
   // Textos
-  textPrimary: '#1A1A2E',    // Casi negro azulado
-  textSecondary: '#6B6B7A',  // Gris medio
-  textDisabled: '#B0AEBB',   // Gris claro
-  textOnPrimary: '#FFFFFF',  // Texto sobre dorado
+  textPrimary: '#1A1A1A',
+  textSecondary: '#6B5E4E',
+  textDisabled: '#B8A898',
+  textOnPrimary: '#FFFFFF',
+  textGold: '#B8974A',
 
   // Tarjetas de crédito
-  cardBlue: '#1A3A5C',
-  cardGreen: '#2D6A4F',
-  cardPurple: '#4A1942',
-  cardOrange: '#A0522D',
-  cardGold: '#B8974A',
+  cardGold: '#8B6914',
+  cardOnyx: '#2C2C2E',
+  cardRose: '#8B4A5A',
+  cardNavy: '#1A2E4A',
+  cardForest: '#2A4A3A',
+  cardBurgundy: '#5A1A2A',
 
   // Cuentas bancarias
-  bankBlue: '#1A3A5C',
-  bankGreen: '#2D6A4F',
-  bankGray: '#48484A',
-
-  // Beige y crema para fondos especiales
-  beige: '#F0E8DA',
-  cream: '#FAF7F2',
+  bankBlue: '#4A6B8A',
+  bankGreen: '#4A7C59',
+  bankGray: '#6B5E4E',
 };
 
-// Tipografías
 export const Typography = {
   h1: { fontSize: 28, fontWeight: 'bold' },
   h2: { fontSize: 24, fontWeight: 'bold' },
@@ -65,23 +69,12 @@ export const Typography = {
   small: { fontSize: 10 },
 };
 
-// Espaciados
 export const Spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
+  xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48,
 };
 
-// Bordes redondeados
 export const BorderRadius = {
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
-  round: 50,
+  sm: 4, md: 8, lg: 12, xl: 16, round: 50,
 };
 
 export default Colors;

@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
-  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
