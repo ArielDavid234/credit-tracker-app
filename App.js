@@ -10,7 +10,7 @@ import AppNavigator from './navigation/AppNavigator';
 import { Colors } from './constants/Colors';
 
 // Tema personalizado para React Native Paper
-// Usa nuestra paleta de colores azul/verde financiero
+// Usa nuestra paleta de colores premium: dorado (#B8974A), carbón oscuro y beige
 const theme = {
   ...DefaultTheme,
   colors: {

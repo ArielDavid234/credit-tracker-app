@@ -7,11 +7,13 @@ Aplicación móvil para **iOS y Android** que permite monitorear todas tus tarje
 - 📊 **Dashboard** - Resumen financiero completo con saldos, deudas y utilización de crédito
 - 💳 **Tarjetas de Crédito** - Lista con saldo, límite, fecha de corte y pago mínimo
 - 🏦 **Cuentas Bancarias** - Saldos de cuentas corrientes y de ahorro
-- 💰 **Transacciones** - Historial de movimientos con categorías
+- 💸 **Deudas** - Seguimiento de préstamos, hipotecas, autos y otras deudas
+- 💰 **Transacciones** - Historial de movimientos con categorías (ingreso/egreso manual)
 - 🔔 **Alertas** - Notificaciones de pagos próximos y límites de crédito
 - 👤 **Perfil** - Configuración del usuario
 - 🔗 **Plaid Integration** - Conexión bancaria segura (sandbox gratuito)
 - 🔐 **Firebase Auth** - Autenticación con email y contraseña
+- 🎨 **Paleta Premium** - Diseño dorado/beige elegante (primary: #B8974A)
 
 ## 🛠️ Tecnologías (todas gratuitas)
 
@@ -138,6 +140,9 @@ credit-tracker-app/
 │   ├── BankAccountsScreen.js # Lista de cuentas bancarias
 │   ├── AddAccountScreen.js   # Agregar cuenta/tarjeta
 │   ├── TransactionsScreen.js # Historial de transacciones
+│   ├── AddTransactionScreen.js # Agregar transacción manual
+│   ├── DebtsScreen.js        # Gestión de deudas
+│   ├── AddDebtScreen.js      # Agregar nueva deuda
 │   ├── AlertsScreen.js       # Alertas y notificaciones
 │   └── ProfileScreen.js      # Perfil y configuración
 │
@@ -154,7 +159,8 @@ credit-tracker-app/
 │   ├── plaid.js              # Configuración Plaid ⚙️
 │   ├── authService.js        # Login, registro, logout
 │   ├── accountService.js     # CRUD cuentas y tarjetas
-│   └── transactionService.js # Transacciones
+│   ├── transactionService.js # Transacciones
+│   └── debtService.js        # CRUD deudas (autos, hipotecas, etc.)
 │
 └── constants/                # Constantes de la app
     ├── Colors.js             # Paleta de colores y tipografía
@@ -175,6 +181,8 @@ users/
     │   └── {cardId}/
     ├── transactions/         # Transacciones
     │   └── {transactionId}/
+    ├── debts/                # Deudas (autos, hipotecas, préstamos)
+    │   └── {debtId}/
     ├── alerts/               # Alertas
     │   └── {alertId}/
     └── plaidTokens/          # Tokens de conexión Plaid
