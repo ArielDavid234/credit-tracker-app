@@ -1,5 +1,5 @@
 // Pantalla de Historial de Transacciones
-// Lista todas las transacciones con filtros + formulario para agregar manualmente
+// Lista todas las transacciones con filtros por tipo y botón para agregar manualmente
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -19,7 +19,7 @@ import { Colors, Spacing, BorderRadius } from '../constants/Colors';
 import TransactionItem from '../components/TransactionItem';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { getCurrentUser } from '../services/authService';
-import { getTransactions, addTransaction, deleteTransaction } from '../services/transactionService';
+import { getTransactions } from '../services/transactionService';
 
 // Formatear moneda en USD
 const formatCurrency = (amount) => {
@@ -36,32 +36,16 @@ const filters = [
   { id: 'credito', label: 'Ingresos' },
 ];
 
-// Categorías disponibles
-const categories = [
-  'Supermercado', 'Restaurantes', 'Gasolina', 'Transporte', 'Entretenimiento',
-  'Salud', 'Ropa', 'Hogar', 'Servicios', 'Educación', 'Viajes', 'Ingresos', 'Otros',
-];
-
-const TransactionsScreen = () => {
+const TransactionsScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [activeFilter, setActiveFilter] = useState('all');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [userId, setUserId] = useState(null);
 
-  // Campos del formulario
-  const [txDescription, setTxDescription] = useState('');
-  const [txAmount, setTxAmount] = useState('');
-  const [txType, setTxType] = useState('debito');
-  const [txCategory, setTxCategory] = useState('Otros');
-  const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
-
-  const loadTransactions = useCallback(async () => {
+  const loadTransactions = useCallback(async (uid) => {
     try {
-      const user = getCurrentUser();
-      if (!user) return;
-      const data = await getTransactions(user.uid, { maxResults: 100 });
+      const data = await getTransactions(uid, { maxResults: 100 });
       setTransactions(data);
     } catch (error) {
       console.error('Error cargando transacciones:', error);
@@ -72,15 +56,21 @@ const TransactionsScreen = () => {
   }, []);
 
   useEffect(() => {
-    loadTransactions();
+    const user = getCurrentUser();
+    if (user) {
+      setUserId(user.uid);
+      loadTransactions(user.uid);
+    } else {
+      setLoading(false);
+    }
   }, [loadTransactions]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadTransactions();
+    if (userId) loadTransactions(userId);
   };
 
-  // Filtrar transacciones según el filtro activo
+  // Filtrar transacciones
   const filteredTransactions = transactions.filter(txn => {
     if (activeFilter === 'all') return true;
     return txn.type === activeFilter;
@@ -90,82 +80,14 @@ const TransactionsScreen = () => {
   const totalGastos = transactions
     .filter(t => t.amount < 0)
     .reduce((sum, t) => sum + Math.abs(t.amount), 0);
-
   const totalIngresos = transactions
     .filter(t => t.amount > 0)
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const periodTitle = (() => {
-    const p = new Date().toLocaleDateString('es-US', { month: 'long', year: 'numeric' });
-    return p.charAt(0).toUpperCase() + p.slice(1);
-  })();
+  const currentPeriod = new Date().toLocaleDateString('es-US', { month: 'long', year: 'numeric' });
+  const periodTitle = currentPeriod.charAt(0).toUpperCase() + currentPeriod.slice(1);
 
-  const resetForm = () => {
-    setTxDescription('');
-    setTxAmount('');
-    setTxType('debito');
-    setTxCategory('Otros');
-    setTxDate(new Date().toISOString().split('T')[0]);
-  };
-
-  const handleSaveTransaction = async () => {
-    if (!txDescription.trim()) {
-      Alert.alert('Error', 'Por favor ingresa una descripción.');
-      return;
-    }
-    if (!txAmount || isNaN(parseFloat(txAmount))) {
-      Alert.alert('Error', 'Por favor ingresa un monto válido.');
-      return;
-    }
-
-    try {
-      setSaving(true);
-      const user = getCurrentUser();
-      await addTransaction(user.uid, {
-        description: txDescription.trim(),
-        amount: parseFloat(txAmount),
-        type: txType,
-        category: txCategory,
-        date: txDate,
-      });
-      await loadTransactions();
-      setShowAddModal(false);
-      resetForm();
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo guardar la transacción.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDeleteTransaction = (txId) => {
-    Alert.alert(
-      'Eliminar transacción',
-      '¿Deseas eliminar esta transacción?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const user = getCurrentUser();
-              await deleteTransaction(user.uid, txId);
-              await loadTransactions();
-            } catch {
-              Alert.alert('Error', 'No se pudo eliminar la transacción.');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const renderItem = ({ item }) => (
-    <TouchableOpacity onLongPress={() => handleDeleteTransaction(item.id)}>
-      <TransactionItem transaction={item} />
-    </TouchableOpacity>
-  );
+  const renderItem = ({ item }) => <TransactionItem transaction={item} />;
 
   const renderHeader = () => (
     <View>
@@ -191,10 +113,13 @@ const TransactionsScreen = () => {
         </View>
       </View>
 
-      {/* Botón agregar */}
-      <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
+      {/* Botón agregar transacción */}
+      <TouchableOpacity
+        style={styles.addTxnButton}
+        onPress={() => navigation.navigate('AddTransaction')}
+      >
         <MaterialCommunityIcons name="plus-circle" size={20} color={Colors.white} />
-        <Text style={styles.addButtonText}>Agregar Transacción</Text>
+        <Text style={styles.addTxnText}>Agregar Transacción Manual</Text>
       </TouchableOpacity>
 
       {/* Filtros */}
@@ -218,8 +143,8 @@ const TransactionsScreen = () => {
         ))}
       </View>
 
-      <Text style={styles.listHeader}>
-        {filteredTransactions.length} transacciones · Mantén presionado para eliminar
+      <Text style={styles.listCountText}>
+        {filteredTransactions.length} transacciones
       </Text>
     </View>
   );
@@ -239,8 +164,11 @@ const TransactionsScreen = () => {
           <View style={styles.emptyState}>
             <MaterialCommunityIcons name="format-list-bulleted" size={64} color={Colors.textDisabled} />
             <Text style={styles.emptyText}>No hay transacciones</Text>
-            <TouchableOpacity style={styles.emptyAddBtn} onPress={() => setShowAddModal(true)}>
-              <Text style={styles.emptyAddBtnText}>+ Agregar ahora</Text>
+            <TouchableOpacity
+              style={styles.emptyAddButton}
+              onPress={() => navigation.navigate('AddTransaction')}
+            >
+              <Text style={styles.emptyAddText}>+ Agregar primera transacción</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -468,13 +396,42 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontWeight: '600',
   },
-  listHeader: {
-    fontSize: 12,
+  listCountText: {
+    fontSize: 13,
     color: Colors.textSecondary,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     fontWeight: '500',
   },
+  addTxnButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  addTxnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.white,
+  },
+  emptyAddButton: {
+    marginTop: Spacing.md,
+    backgroundColor: `${Colors.primary}20`,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 8,
+    borderRadius: BorderRadius.round,
+  },
+  emptyAddText: {
+    fontSize: 14,
+    color: Colors.primary,
+    fontWeight: '600',
+  },
+
   emptyState: {
     alignItems: 'center',
     padding: Spacing.xxl,

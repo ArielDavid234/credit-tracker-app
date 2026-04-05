@@ -50,9 +50,29 @@ const AddAccountScreen = ({ navigation }) => {
   const [minimumPayment, setMinimumPayment] = useState('');
   const [interestRate, setInterestRate] = useState('');
 
+  // Simular conexión con Plaid (en producción, abrir el Plaid Link)
+  const handlePlaidConnect = async () => {
+    setLoading(true);
+    // Aquí iría la integración real con Plaid Link
+    // Por ahora simulamos con un timeout
+    setTimeout(() => {
+      setLoading(false);
+      Alert.alert(
+        'Plaid Sandbox',
+        'Para conectar con Plaid:\n\n' +
+        '1. Configura tus credenciales en services/plaid.js\n' +
+        '2. Usa las credenciales de prueba:\n' +
+        '   Usuario: user_good\n' +
+        '   Contraseña: pass_good\n\n' +
+        'Ver SETUP_GUIDE.md para instrucciones completas.',
+        [{ text: 'Entendido' }]
+      );
+    }, 1500);
+  };
+
   // Guardar cuenta manual en Firebase
   const handleSaveManual = async () => {
-    if (!bankName.trim() || !accountName.trim() || !lastFour || !balance) {
+    if (!bankName || !accountName || !lastFour || !balance) {
       Alert.alert('Error', 'Por favor completa todos los campos requeridos.');
       return;
     }
@@ -62,48 +82,38 @@ const AddAccountScreen = ({ navigation }) => {
       return;
     }
 
-    if (isNaN(parseFloat(balance))) {
-      Alert.alert('Error', 'El saldo debe ser un número válido.');
+    const user = getCurrentUser();
+    if (!user) {
+      Alert.alert('Error', 'No estás autenticado.');
       return;
     }
 
+    setLoading(true);
     try {
-      setLoading(true);
-      const user = getCurrentUser();
-      if (!user) {
-        Alert.alert('Error', 'Debes iniciar sesión primero.');
-        return;
-      }
-
       if (selectedType === 'credit') {
         await addCreditCard(user.uid, {
-          name: accountName.trim(),
-          bank: bankName.trim(),
+          name: accountName,
+          bankName,
           lastFour,
           balance: parseFloat(balance) || 0,
           creditLimit: parseFloat(creditLimit) || 0,
           availableCredit: (parseFloat(creditLimit) || 0) - (parseFloat(balance) || 0),
-          minimumPayment: parseFloat(minimumPayment) || 0,
-          dueDate: dueDate || '',
-          interestRate: parseFloat(interestRate) || 0,
-          color: Colors.cardGold,
-          network: 'Visa',
+          dueDate: dueDate || null,
+          minimumPayment: 0,
+          type: 'credit',
         });
       } else {
         await addBankAccount(user.uid, {
-          name: accountName.trim(),
-          bank: bankName.trim(),
-          type: selectedType,
+          name: accountName,
+          bankName,
           lastFour,
           balance: parseFloat(balance) || 0,
-          availableBalance: parseFloat(balance) || 0,
-          color: Colors.bankGold,
+          type: selectedType,
         });
       }
-
       Alert.alert(
-        '¡Cuenta Agregada!',
-        `La cuenta "${accountName}" fue guardada exitosamente.`,
+        'Cuenta Agregada',
+        `La cuenta "${accountName}" ha sido agregada exitosamente.`,
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     } catch (error) {

@@ -1,5 +1,5 @@
-// Servicio de Deudas Generales
-// CRUD para deudas de autos, hipotecas, préstamos personales, etc.
+// Servicio de Deudas
+// CRUD para deudas generales: autos, hipotecas, préstamos personales, etc.
 
 import {
   collection,
@@ -14,14 +14,15 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 
-// Tipos de deuda soportados
+// Tipos de deuda disponibles
 export const DEBT_TYPES = [
-  { id: 'auto', label: 'Préstamo de Auto', icon: 'car', color: '#B8974A' },
-  { id: 'mortgage', label: 'Hipoteca', icon: 'home', color: '#2C2C2E' },
-  { id: 'personal', label: 'Préstamo Personal', icon: 'account-cash', color: '#8B6F2E' },
-  { id: 'student', label: 'Préstamo Estudiantil', icon: 'school', color: '#4A6B8A' },
-  { id: 'medical', label: 'Deuda Médica', icon: 'hospital-box', color: '#A94040' },
-  { id: 'other', label: 'Otra Deuda', icon: 'cash-multiple', color: '#6B6B70' },
+  { id: 'auto', label: 'Préstamo de Auto', icon: 'car', color: '#4A6B8A' },
+  { id: 'mortgage', label: 'Hipoteca', icon: 'home', color: '#2D6A4F' },
+  { id: 'personal', label: 'Préstamo Personal', icon: 'account', color: '#B8974A' },
+  { id: 'student', label: 'Préstamo Estudiantil', icon: 'school', color: '#6A4A8A' },
+  { id: 'medical', label: 'Deuda Médica', icon: 'medical-bag', color: '#C0392B' },
+  { id: 'business', label: 'Préstamo Empresarial', icon: 'briefcase', color: '#2C2C2E' },
+  { id: 'other', label: 'Otra Deuda', icon: 'cash', color: '#6B6B7A' },
 ];
 
 // Obtener todas las deudas del usuario
@@ -30,11 +31,7 @@ export const getDebts = async (userId) => {
     const debtsRef = collection(db, 'users', userId, 'debts');
     const q = query(debtsRef, orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
-
-    return snapshot.docs.map(d => ({
-      id: d.id,
-      ...d.data(),
-    }));
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (error) {
     console.error('Error obteniendo deudas:', error);
     throw error;
@@ -47,10 +44,6 @@ export const addDebt = async (userId, debtData) => {
     const debtsRef = collection(db, 'users', userId, 'debts');
     const docRef = await addDoc(debtsRef, {
       ...debtData,
-      originalAmount: parseFloat(debtData.originalAmount) || 0,
-      remainingBalance: parseFloat(debtData.remainingBalance) || 0,
-      monthlyPayment: parseFloat(debtData.monthlyPayment) || 0,
-      interestRate: parseFloat(debtData.interestRate) || 0,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -85,17 +78,11 @@ export const deleteDebt = async (userId, debtId) => {
   }
 };
 
-// Calcular el resumen total de deudas
+// Calcular el resumen de deudas
 export const getDebtSummary = (debts) => {
-  const totalDebt = debts.reduce(
-    (sum, d) => sum + (parseFloat(d.remainingBalance) || 0),
-    0
-  );
-  const totalMonthlyPayment = debts.reduce(
-    (sum, d) => sum + (parseFloat(d.monthlyPayment) || 0),
-    0
-  );
-  return { totalDebt, totalMonthlyPayment, count: debts.length };
+  const totalOwed = debts.reduce((sum, d) => sum + (d.balance || 0), 0);
+  const totalMonthly = debts.reduce((sum, d) => sum + (d.monthlyPayment || 0), 0);
+  return { totalOwed, totalMonthly, count: debts.length };
 };
 
 export default {

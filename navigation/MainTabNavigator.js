@@ -2,7 +2,7 @@
 // Contiene las 6 secciones principales de la app después de autenticarse
 
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -18,6 +18,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 // Pantallas adicionales (accesibles desde las pestañas)
 import AddAccountScreen from '../screens/AddAccountScreen';
 import TransactionsScreen from '../screens/TransactionsScreen';
+import AddTransactionScreen from '../screens/AddTransactionScreen';
 
 // Colores
 import { Colors } from '../constants/Colors';
@@ -25,7 +26,7 @@ import { Colors } from '../constants/Colors';
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-const headerStyle = {
+const headerOptions = {
   headerStyle: { backgroundColor: Colors.secondary },
   headerTintColor: Colors.primary,
   headerTitleStyle: { fontWeight: 'bold', color: Colors.primary },
@@ -33,45 +34,92 @@ const headerStyle = {
 
 // Stack para la pestaña de Dashboard (incluye Transacciones y Agregar Cuenta)
 const DashboardStack = () => (
-  <Stack.Navigator screenOptions={headerStyle}>
-    <Stack.Screen name="DashboardMain" component={DashboardScreen} options={{ title: 'Mi Dashboard' }} />
-    <Stack.Screen name="Transactions" component={TransactionsScreen} options={{ title: 'Transacciones' }} />
-    <Stack.Screen name="AddAccount" component={AddAccountScreen} options={{ title: 'Agregar Cuenta' }} />
+  <Stack.Navigator screenOptions={headerOptions}>
+    <Stack.Screen
+      name="DashboardMain"
+      component={DashboardScreen}
+      options={{ title: 'Mi Dashboard' }}
+    />
+    <Stack.Screen
+      name="Transactions"
+      component={TransactionsScreen}
+      options={{ title: 'Transacciones' }}
+    />
+    <Stack.Screen
+      name="AddTransaction"
+      component={AddTransactionScreen}
+      options={{ title: 'Agregar Transacción' }}
+    />
+    <Stack.Screen
+      name="AddAccount"
+      component={AddAccountScreen}
+      options={{ title: 'Agregar Cuenta' }}
+    />
   </Stack.Navigator>
 );
 
 // Stack para la pestaña de Tarjetas de Crédito
 const CardsStack = () => (
-  <Stack.Navigator screenOptions={headerStyle}>
-    <Stack.Screen name="CreditCardsMain" component={CreditCardsScreen} options={{ title: 'Tarjetas de Crédito' }} />
+  <Stack.Navigator screenOptions={headerOptions}>
+    <Stack.Screen
+      name="CreditCardsMain"
+      component={CreditCardsScreen}
+      options={{ title: 'Tarjetas de Crédito' }}
+    />
+    <Stack.Screen
+      name="AddAccount"
+      component={AddAccountScreen}
+      options={{ title: 'Agregar Tarjeta' }}
+    />
   </Stack.Navigator>
 );
 
 // Stack para la pestaña de Cuentas Bancarias
 const AccountsStack = () => (
-  <Stack.Navigator screenOptions={headerStyle}>
-    <Stack.Screen name="BankAccountsMain" component={BankAccountsScreen} options={{ title: 'Cuentas Bancarias' }} />
+  <Stack.Navigator screenOptions={headerOptions}>
+    <Stack.Screen
+      name="BankAccountsMain"
+      component={BankAccountsScreen}
+      options={{ title: 'Cuentas Bancarias' }}
+    />
+    <Stack.Screen
+      name="AddAccount"
+      component={AddAccountScreen}
+      options={{ title: 'Agregar Cuenta' }}
+    />
   </Stack.Navigator>
 );
 
 // Stack para la pestaña de Deudas
 const DebtsStack = () => (
-  <Stack.Navigator screenOptions={headerStyle}>
-    <Stack.Screen name="DebtsMain" component={DebtsScreen} options={{ title: 'Mis Deudas' }} />
+  <Stack.Navigator screenOptions={headerOptions}>
+    <Stack.Screen
+      name="DebtsMain"
+      component={DebtsScreen}
+      options={{ title: 'Mis Deudas' }}
+    />
   </Stack.Navigator>
 );
 
 // Stack para la pestaña de Alertas
 const AlertsStack = () => (
-  <Stack.Navigator screenOptions={headerStyle}>
-    <Stack.Screen name="AlertsMain" component={AlertsScreen} options={{ title: 'Alertas' }} />
+  <Stack.Navigator screenOptions={headerOptions}>
+    <Stack.Screen
+      name="AlertsMain"
+      component={AlertsScreen}
+      options={{ title: 'Alertas' }}
+    />
   </Stack.Navigator>
 );
 
 // Stack para la pestaña de Perfil
 const ProfileStack = () => (
-  <Stack.Navigator screenOptions={headerStyle}>
-    <Stack.Screen name="ProfileMain" component={ProfileScreen} options={{ title: 'Mi Perfil' }} />
+  <Stack.Navigator screenOptions={headerOptions}>
+    <Stack.Screen
+      name="ProfileMain"
+      component={ProfileScreen}
+      options={{ title: 'Mi Perfil' }}
+    />
   </Stack.Navigator>
 );
 
@@ -99,7 +147,7 @@ const MainTabNavigator = () => {
               iconName = focused ? 'bank' : 'bank-outline';
               break;
             case 'Deudas':
-              iconName = focused ? 'cash-multiple' : 'cash-minus';
+              iconName = focused ? 'cash-multiple' : 'cash-multiple';
               break;
             case 'Alertas':
               iconName = focused ? 'bell' : 'bell-outline';

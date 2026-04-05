@@ -43,9 +43,7 @@ const DashboardScreen = ({ navigation }) => {
 
       setRecentCards(cards.slice(0, 2));
       setRecentTransactions(transactions);
-
-      const calculatedSummary = getFinancialSummary(cards, accounts);
-      setSummary(calculatedSummary);
+      setSummary(getFinancialSummary(cards, accounts));
     } catch (error) {
       console.error('Error cargando dashboard:', error);
     } finally {
@@ -92,7 +90,7 @@ const DashboardScreen = ({ navigation }) => {
         </View>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('AddAccount')}
+          onPress={() => navigation.navigate('AddTransaction')}
         >
           <MaterialCommunityIcons name="plus" size={22} color={Colors.white} />
         </TouchableOpacity>
@@ -165,44 +163,33 @@ const DashboardScreen = ({ navigation }) => {
                 No hay transacciones recientes
               </Text>
               <TouchableOpacity
-                style={styles.addTransactionBtn}
-                onPress={() => navigation.navigate('Transactions')}
+                style={styles.addTxnButton}
+                onPress={() => navigation.navigate('AddTransaction')}
               >
-                <Text style={styles.addTransactionBtnText}>+ Agregar transacción</Text>
+                <Text style={styles.addTxnText}>+ Agregar transacción</Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
       </View>
 
-      {/* Sección: Accesos rápidos */}
+      {/* Sección: Acceso rápido */}
       <View style={styles.sectionContainer}>
-        <Text style={[styles.sectionTitle, { paddingHorizontal: Spacing.md, marginBottom: Spacing.sm }]}>
-          Accesos Rápidos
-        </Text>
-        <View style={styles.quickActionsRow}>
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => navigation.navigate('AddAccount')}
-          >
-            <MaterialCommunityIcons name="bank-plus" size={26} color={Colors.primary} />
-            <Text style={styles.quickActionText}>Agregar Cuenta</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => navigation.navigate('Transactions')}
-          >
-            <MaterialCommunityIcons name="plus-circle-outline" size={26} color={Colors.primary} />
-            <Text style={styles.quickActionText}>Nueva Transacción</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.quickAction}
-            onPress={() => navigation.navigate('Deudas')}
-          >
-            <MaterialCommunityIcons name="cash-multiple" size={26} color={Colors.primary} />
-            <Text style={styles.quickActionText}>Mis Deudas</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.connectAccountCard}
+          onPress={() => navigation.navigate('AddAccount')}
+        >
+          <MaterialCommunityIcons name="bank-plus" size={32} color={Colors.primary} />
+          <View style={styles.connectAccountText}>
+            <Text style={styles.connectAccountTitle}>
+              Agregar Cuenta / Tarjeta
+            </Text>
+            <Text style={styles.connectAccountSubtitle}>
+              Registra una nueva cuenta bancaria o tarjeta
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.primary} />
+        </TouchableOpacity>
       </View>
 
       {/* Espaciado al final */}
@@ -304,19 +291,19 @@ const styles = StyleSheet.create({
     color: Colors.textDisabled,
     marginTop: Spacing.sm,
   },
-  addTransactionBtn: {
-    marginTop: Spacing.sm,
+  addTxnButton: {
+    marginTop: Spacing.md,
+    backgroundColor: `${Colors.primary}20`,
     paddingHorizontal: Spacing.lg,
     paddingVertical: 8,
     borderRadius: BorderRadius.round,
-    backgroundColor: `${Colors.primary}18`,
   },
-  addTransactionBtnText: {
+  addTxnText: {
+    fontSize: 14,
     color: Colors.primary,
-    fontSize: 13,
     fontWeight: '600',
   },
-  quickActionsRow: {
+  connectAccountCard: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingHorizontal: Spacing.md,
@@ -324,7 +311,7 @@ const styles = StyleSheet.create({
   },
   quickAction: {
     alignItems: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: `${Colors.primary}12`,
     borderRadius: BorderRadius.xl,
     padding: Spacing.md,
     flex: 1,

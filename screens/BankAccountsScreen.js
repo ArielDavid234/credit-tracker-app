@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
@@ -30,12 +31,11 @@ const BankAccountsScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [accounts, setAccounts] = useState([]);
+  const [userId, setUserId] = useState(null);
 
-  const loadAccounts = useCallback(async () => {
+  const loadAccounts = useCallback(async (uid) => {
     try {
-      const user = getCurrentUser();
-      if (!user) return;
-      const data = await getBankAccounts(user.uid);
+      const data = await getBankAccounts(uid);
       setAccounts(data);
     } catch (error) {
       console.error('Error cargando cuentas:', error);
@@ -46,45 +46,46 @@ const BankAccountsScreen = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    loadAccounts();
+    const user = getCurrentUser();
+    if (user) {
+      setUserId(user.uid);
+      loadAccounts(user.uid);
+    } else {
+      setLoading(false);
+    }
   }, [loadAccounts]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    if (userId) loadAccounts(userId);
+  };
+
+  const handleDelete = (accountId) => {
+    Alert.alert('Eliminar cuenta', '¿Estás seguro que deseas eliminar esta cuenta?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteBankAccount(userId, accountId);
+            setAccounts(prev => prev.filter(a => a.id !== accountId));
+          } catch {
+            Alert.alert('Error', 'No se pudo eliminar la cuenta.');
+          }
+        },
+      },
+    ]);
+  };
 
   // Separar por tipo de cuenta
   const checkingAccounts = accounts.filter(a => a.type === 'checking');
   const savingsAccounts = accounts.filter(a => a.type === 'savings');
 
   // Calcular totales
-  const totalBalance = accounts.reduce((sum, a) => sum + (parseFloat(a.balance) || 0), 0);
-  const totalChecking = checkingAccounts.reduce((sum, a) => sum + (parseFloat(a.balance) || 0), 0);
-  const totalSavings = savingsAccounts.reduce((sum, a) => sum + (parseFloat(a.balance) || 0), 0);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadAccounts();
-  };
-
-  const handleDelete = (accountId, accountName) => {
-    Alert.alert(
-      'Eliminar cuenta',
-      `¿Deseas eliminar "${accountName}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const user = getCurrentUser();
-              await deleteBankAccount(user.uid, accountId);
-              await loadAccounts();
-            } catch {
-              Alert.alert('Error', 'No se pudo eliminar la cuenta.');
-            }
-          },
-        },
-      ]
-    );
-  };
+  const totalBalance = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
+  const totalChecking = checkingAccounts.reduce((sum, a) => sum + (a.balance || 0), 0);
+  const totalSavings = savingsAccounts.reduce((sum, a) => sum + (a.balance || 0), 0);
 
   if (loading) {
     return <LoadingSpinner fullScreen message="Cargando cuentas..." />;
@@ -128,7 +129,7 @@ const BankAccountsScreen = ({ navigation }) => {
           <Text style={styles.listTitle}>Mis Cuentas ({accounts.length})</Text>
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => navigation.navigate('Dashboard', { screen: 'AddAccount' })}
+            onPress={() => navigation.navigate('AddAccount')}
           >
             <MaterialCommunityIcons name="plus" size={18} color={Colors.primary} />
             <Text style={styles.addButtonText}>Agregar</Text>
@@ -143,15 +144,11 @@ const BankAccountsScreen = ({ navigation }) => {
               {' '}Cuentas Corrientes
             </Text>
             {checkingAccounts.map(account => (
-              <View key={account.id} style={styles.accountWrapper}>
-                <BankAccountItem account={account} />
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() => handleDelete(account.id, account.name)}
-                >
-                  <MaterialCommunityIcons name="trash-can-outline" size={18} color={Colors.error} />
-                </TouchableOpacity>
-              </View>
+              <BankAccountItem
+                key={account.id}
+                account={account}
+                onLongPress={() => handleDelete(account.id)}
+              />
             ))}
           </View>
         )}
@@ -164,15 +161,11 @@ const BankAccountsScreen = ({ navigation }) => {
               {' '}Cuentas de Ahorro
             </Text>
             {savingsAccounts.map(account => (
-              <View key={account.id} style={styles.accountWrapper}>
-                <BankAccountItem account={account} />
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() => handleDelete(account.id, account.name)}
-                >
-                  <MaterialCommunityIcons name="trash-can-outline" size={18} color={Colors.error} />
-                </TouchableOpacity>
-              </View>
+              <BankAccountItem
+                key={account.id}
+                account={account}
+                onLongPress={() => handleDelete(account.id)}
+              />
             ))}
           </View>
         )}

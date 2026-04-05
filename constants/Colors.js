@@ -1,53 +1,56 @@
 // Paleta de colores de la aplicación Credit Tracker
-// Tema premium: dorado, beige cálido, carbón oscuro
+// Tema premium: dorado, beige cálido, carbón
 
 export const Colors = {
-  // Colores primarios (dorado premium)
+  // Colores primarios — dorado premium
   primary: '#B8974A',        // Dorado principal
-  primaryLight: '#D4AF6A',   // Dorado claro
-  primaryDark: '#8B6F2E',    // Dorado oscuro
+  primaryLight: '#CEB06A',   // Dorado claro
+  primaryDark: '#8B6E2E',    // Dorado oscuro
 
-  // Colores secundarios (carbón oscuro premium)
+  // Colores secundarios — carbón elegante
   secondary: '#2C2C2E',      // Carbón oscuro
   secondaryLight: '#48484A', // Carbón claro
-  secondaryDark: '#1C1C1E',  // Carbón muy oscuro
+  secondaryDark: '#1C1C1E',  // Casi negro
 
-  // Color de acento cálido
-  accent: '#C9A96E',         // Dorado suave
+  // Colores de acento
+  accent: '#B8974A',         // Dorado (igual que primary)
 
   // Colores de estado
-  success: '#5A7A4A',        // Verde oliva suave
-  warning: '#C4943A',        // Ámbar cálido
-  error: '#A94040',          // Rojo apagado premium
-  info: '#4A6B8A',           // Azul acero suave
-  // Neutros premium (beige/blanco cálido)
+  success: '#4CAF7A',        // Verde salvia
+  warning: '#E8A740',        // Ámbar cálido
+  error: '#C0392B',          // Rojo profundo
+  info: '#4A6B8A',           // Azul marino suave
+
+  // Neutros cálidos
   white: '#FFFFFF',
-  black: '#1C1C1E',
-  background: '#F8F5F0',     // Beige muy claro / blanco cálido
-  surface: '#FDFAF6',        // Superficie de tarjetas (blanco crema)
-  surfaceCard: '#FDFAF6',    // Tarjetas
-  border: '#E8DFD0',         // Bordes beige
-  divider: '#F0EAE0',        // Divisores beige claro
+  black: '#000000',
+  background: '#F8F5F0',     // Beige muy claro (fondo principal)
+  surface: '#FDFAF6',        // Blanco cálido (tarjetas)
+  surfaceCard: '#FFFFFF',    // Blanco puro
+  border: '#E8DFD0',         // Beige borde
+  divider: '#EDE8E0',        // Divisores beige
 
   // Textos
-  textPrimary: '#1C1C1E',    // Casi negro (carbón)
-  textSecondary: '#6B6B70',  // Gris medio cálido
-  textDisabled: '#AEAEB2',   // Gris claro
-  textOnPrimary: '#FFFFFF',  // Texto sobre fondo dorado
-  textGold: '#B8974A',       // Texto dorado
+  textPrimary: '#1A1A2E',    // Casi negro azulado
+  textSecondary: '#6B6B7A',  // Gris medio
+  textDisabled: '#B0AEBB',   // Gris claro
+  textOnPrimary: '#FFFFFF',  // Texto sobre dorado
 
-  // Tarjetas de crédito (colores premium)
+  // Tarjetas de crédito
+  cardBlue: '#1A3A5C',
+  cardGreen: '#2D6A4F',
+  cardPurple: '#4A1942',
+  cardOrange: '#A0522D',
   cardGold: '#B8974A',
-  cardCharcoal: '#2C2C2E',
-  cardCream: '#D4C5A9',
-  cardBronze: '#8B6F2E',
-  cardSilver: '#8E8E93',
 
   // Cuentas bancarias
-  bankGold: '#B8974A',
-  bankCharcoal: '#2C2C2E',
-  bankBeige: '#C9A96E',
-  bankBlue: '#4A6B8A',    // Retrocompatibilidad
+  bankBlue: '#1A3A5C',
+  bankGreen: '#2D6A4F',
+  bankGray: '#48484A',
+
+  // Beige y crema para fondos especiales
+  beige: '#F0E8DA',
+  cream: '#FAF7F2',
 };
 
 // Tipografías

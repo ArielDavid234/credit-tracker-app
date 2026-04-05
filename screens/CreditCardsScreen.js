@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
@@ -30,12 +31,11 @@ const CreditCardsScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [cards, setCards] = useState([]);
+  const [userId, setUserId] = useState(null);
 
-  const loadCards = useCallback(async () => {
+  const loadCards = useCallback(async (uid) => {
     try {
-      const user = getCurrentUser();
-      if (!user) return;
-      const data = await getCreditCards(user.uid);
+      const data = await getCreditCards(uid);
       setCards(data);
     } catch (error) {
       console.error('Error cargando tarjetas:', error);
@@ -46,41 +46,42 @@ const CreditCardsScreen = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    loadCards();
+    const user = getCurrentUser();
+    if (user) {
+      setUserId(user.uid);
+      loadCards(user.uid);
+    } else {
+      setLoading(false);
+    }
   }, [loadCards]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadCards();
+    if (userId) loadCards(userId);
   };
 
-  const handleDelete = (cardId, cardName) => {
-    Alert.alert(
-      'Eliminar tarjeta',
-      `¿Deseas eliminar "${cardName}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const user = getCurrentUser();
-              await deleteCreditCard(user.uid, cardId);
-              await loadCards();
-            } catch {
-              Alert.alert('Error', 'No se pudo eliminar la tarjeta.');
-            }
-          },
+  const handleDelete = (cardId) => {
+    Alert.alert('Eliminar tarjeta', '¿Estás seguro que deseas eliminar esta tarjeta?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteCreditCard(userId, cardId);
+            setCards(prev => prev.filter(c => c.id !== cardId));
+          } catch {
+            Alert.alert('Error', 'No se pudo eliminar la tarjeta.');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   // Calcular totales
-  const totalDebt = cards.reduce((sum, card) => sum + (parseFloat(card.balance) || 0), 0);
-  const totalLimit = cards.reduce((sum, card) => sum + (parseFloat(card.creditLimit) || 0), 0);
-  const totalAvailable = cards.reduce((sum, card) => sum + (parseFloat(card.availableCredit) || 0), 0);
+  const totalDebt = cards.reduce((sum, card) => sum + (card.balance || 0), 0);
+  const totalLimit = cards.reduce((sum, card) => sum + (card.creditLimit || 0), 0);
+  const totalAvailable = cards.reduce((sum, card) => sum + (card.availableCredit || (card.creditLimit - card.balance) || 0), 0);
 
   if (loading) {
     return <LoadingSpinner fullScreen message="Cargando tarjetas..." />;
@@ -130,7 +131,7 @@ const CreditCardsScreen = ({ navigation }) => {
           </Text>
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => navigation.navigate('Dashboard', { screen: 'AddAccount' })}
+            onPress={() => navigation.navigate('AddAccount')}
           >
             <MaterialCommunityIcons name="plus" size={18} color={Colors.primary} />
             <Text style={styles.addButtonText}>Agregar</Text>
@@ -140,15 +141,11 @@ const CreditCardsScreen = ({ navigation }) => {
         {/* Lista de tarjetas */}
         {cards.length > 0 ? (
           cards.map(card => (
-            <View key={card.id} style={styles.cardWrapper}>
-              <CreditCardItem card={card} />
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => handleDelete(card.id, card.name)}
-              >
-                <MaterialCommunityIcons name="trash-can-outline" size={18} color={Colors.error} />
-              </TouchableOpacity>
-            </View>
+            <CreditCardItem
+              key={card.id}
+              card={card}
+              onLongPress={() => handleDelete(card.id)}
+            />
           ))
         ) : (
           <View style={styles.emptyState}>

@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   profileHeader: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.secondary,
     alignItems: 'center',
     paddingTop: Spacing.xl,
     paddingBottom: Spacing.xxl,

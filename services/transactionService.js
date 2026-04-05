@@ -40,35 +40,24 @@ export const getTransactions = async (userId, options = {}) => {
 };
 
 // Agregar una transacción manualmente
-export const addTransaction = async (userId, transactionData) => {
+export const addManualTransaction = async (userId, txData) => {
   try {
     const txRef = collection(db, 'users', userId, 'transactions');
-    const amount = parseFloat(transactionData.amount) || 0;
     const docRef = await addDoc(txRef, {
-      description: transactionData.description || '',
-      amount: transactionData.type === 'debito' ? -Math.abs(amount) : Math.abs(amount),
-      date: transactionData.date || new Date().toISOString().split('T')[0],
-      category: transactionData.category || 'Sin categoría',
-      merchant: transactionData.merchant || transactionData.description || '',
-      accountId: transactionData.accountId || '',
-      status: 'completada',
-      type: transactionData.type || 'debito',
+      description: txData.description,
+      amount: txData.type === 'debito' ? -Math.abs(txData.amount) : Math.abs(txData.amount),
+      date: txData.date,
+      category: txData.category || 'Sin categoría',
+      type: txData.type,
+      accountId: txData.accountId || null,
+      notes: txData.notes || '',
       manual: true,
+      status: 'completada',
       createdAt: serverTimestamp(),
     });
     return docRef.id;
   } catch (error) {
-    console.error('Error agregando transacción:', error);
-    throw error;
-  }
-};
-
-// Eliminar una transacción
-export const deleteTransaction = async (userId, transactionId) => {
-  try {
-    await deleteDoc(doc(db, 'users', userId, 'transactions', transactionId));
-  } catch (error) {
-    console.error('Error eliminando transacción:', error);
+    console.error('Error agregando transacción manual:', error);
     throw error;
   }
 };
@@ -146,8 +135,7 @@ export const formatCurrency = (amount) => {
 
 export default {
   getTransactions,
-  addTransaction,
-  deleteTransaction,
+  addManualTransaction,
   saveTransactions,
   getSpendingSummary,
   getTotalSpending,

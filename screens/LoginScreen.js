@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.secondary,
     paddingTop: 80,
     paddingBottom: 60,
     alignItems: 'center',
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: Spacing.md,
-    shadowColor: Colors.primary,
+    shadowColor: Colors.primaryDark,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

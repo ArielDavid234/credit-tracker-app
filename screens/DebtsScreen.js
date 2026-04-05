@@ -1,17 +1,20 @@
-// Pantalla de Deudas Generales
-// Gestiona deudas de autos, hipotecas, préstamos personales, etc.
+// Pantalla de Deudas
+// Gestiona todas las deudas: autos, hipotecas, préstamos, etc.
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
-  TextInput,
   Alert,
   Modal,
+  TextInput,
+  ScrollView,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '../constants/Colors';
@@ -28,28 +31,111 @@ import {
 const formatCurrency = (amount) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
 
+// ── Componente: tarjeta de deuda individual ──────────────────────────────────
+const DebtCard = ({ debt, onDelete }) => {
+  const debtType = DEBT_TYPES.find(t => t.id === debt.type) || DEBT_TYPES[DEBT_TYPES.length - 1];
+  const progress = debt.originalAmount > 0 ? (debt.balance / debt.originalAmount) * 100 : 0;
+
+  return (
+    <View style={styles.debtCard}>
+      <View style={styles.debtCardHeader}>
+        <View style={[styles.debtIcon, { backgroundColor: `${debtType.color}20` }]}>
+          <MaterialCommunityIcons name={debtType.icon} size={24} color={debtType.color} />
+        </View>
+        <View style={styles.debtInfo}>
+          <Text style={styles.debtName}>{debt.name}</Text>
+          <Text style={styles.debtType}>{debtType.label}</Text>
+          {debt.lender ? <Text style={styles.debtLender}>{debt.lender}</Text> : null}
+        </View>
+        <TouchableOpacity onPress={() => onDelete(debt.id)} style={styles.deleteBtn}>
+          <MaterialCommunityIcons name="trash-can-outline" size={20} color={Colors.error} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.debtNumbers}>
+        <View style={styles.debtNumberItem}>
+          <Text style={styles.debtNumberLabel}>Saldo pendiente</Text>
+          <Text style={[styles.debtNumberValue, { color: Colors.error }]}>
+            {formatCurrency(debt.balance)}
+          </Text>
+        </View>
+        {debt.monthlyPayment ? (
+          <View style={styles.debtNumberItem}>
+            <Text style={styles.debtNumberLabel}>Pago mensual</Text>
+            <Text style={[styles.debtNumberValue, { color: Colors.primary }]}>
+              {formatCurrency(debt.monthlyPayment)}
+            </Text>
+          </View>
+        ) : null}
+        {debt.interestRate ? (
+          <View style={styles.debtNumberItem}>
+            <Text style={styles.debtNumberLabel}>Tasa de interés</Text>
+            <Text style={styles.debtNumberValue}>{debt.interestRate}%</Text>
+          </View>
+        ) : null}
+      </View>
+
+      {debt.originalAmount > 0 && (
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${Math.min(progress, 100)}%`, backgroundColor: debtType.color },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressLabel}>
+            {progress.toFixed(0)}% pendiente de {formatCurrency(debt.originalAmount)}
+          </Text>
+        </View>
+      )}
+
+      {debt.dueDate ? (
+        <View style={styles.dueDateRow}>
+          <MaterialCommunityIcons name="calendar" size={14} color={Colors.textSecondary} />
+          <Text style={styles.dueDateText}>Próximo pago: {debt.dueDate}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+};
+
+// ── Pantalla principal ───────────────────────────────────────────────────────
 const DebtsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [debts, setDebts] = useState([]);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [userId, setUserId] = useState(null);
 
-  // Campos del formulario
-  const [debtType, setDebtType] = useState('auto');
-  const [creditorName, setCreditorName] = useState('');
-  const [originalAmount, setOriginalAmount] = useState('');
-  const [remainingBalance, setRemainingBalance] = useState('');
-  const [monthlyPayment, setMonthlyPayment] = useState('');
-  const [interestRate, setInterestRate] = useState('');
-  const [dueDay, setDueDay] = useState('');
-  const [notes, setNotes] = useState('');
+  // Formulario de nueva deuda
+  const [form, setForm] = useState({
+    name: '',
+    type: 'auto',
+    lender: '',
+    balance: '',
+    originalAmount: '',
+    monthlyPayment: '',
+    interestRate: '',
+    dueDate: '',
+    notes: '',
+  });
 
-  const loadDebts = useCallback(async () => {
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (user) {
+      setUserId(user.uid);
+      loadDebts(user.uid);
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadDebts = async (uid) => {
     try {
-      const user = getCurrentUser();
-      if (!user) return;
-      const data = await getDebts(user.uid);
+      const data = await getDebts(uid);
       setDebts(data);
     } catch (error) {
       console.error('Error cargando deudas:', error);
@@ -57,62 +143,50 @@ const DebtsScreen = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
-
-  useEffect(() => {
-    loadDebts();
-  }, [loadDebts]);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadDebts();
   };
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    if (userId) loadDebts(userId);
+  }, [userId]);
 
   const resetForm = () => {
-    setDebtType('auto');
-    setCreditorName('');
-    setOriginalAmount('');
-    setRemainingBalance('');
-    setMonthlyPayment('');
-    setInterestRate('');
-    setDueDay('');
-    setNotes('');
+    setForm({
+      name: '',
+      type: 'auto',
+      lender: '',
+      balance: '',
+      originalAmount: '',
+      monthlyPayment: '',
+      interestRate: '',
+      dueDate: '',
+      notes: '',
+    });
   };
 
-  const handleSaveDebt = async () => {
-    if (!creditorName.trim()) {
-      Alert.alert('Error', 'Por favor ingresa el nombre del acreedor.');
+  const handleSave = async () => {
+    if (!form.name.trim() || !form.balance.trim()) {
+      Alert.alert('Error', 'El nombre y el saldo pendiente son requeridos.');
       return;
     }
-    if (!remainingBalance || isNaN(parseFloat(remainingBalance))) {
-      Alert.alert('Error', 'Por favor ingresa el saldo pendiente.');
-      return;
-    }
-    if (!monthlyPayment || isNaN(parseFloat(monthlyPayment))) {
-      Alert.alert('Error', 'Por favor ingresa el pago mensual.');
-      return;
-    }
-
+    setSaving(true);
     try {
-      setSaving(true);
-      const user = getCurrentUser();
-      const typeInfo = DEBT_TYPES.find(t => t.id === debtType) || DEBT_TYPES[0];
-      await addDebt(user.uid, {
-        type: debtType,
-        typeLabel: typeInfo.label,
-        typeIcon: typeInfo.icon,
-        typeColor: typeInfo.color,
-        creditorName: creditorName.trim(),
-        originalAmount: originalAmount || remainingBalance,
-        remainingBalance,
-        monthlyPayment,
-        interestRate: interestRate || '0',
-        dueDay: dueDay || '',
-        notes: notes.trim(),
-      });
-      await loadDebts();
-      setShowAddModal(false);
+      const debtData = {
+        name: form.name.trim(),
+        type: form.type,
+        lender: form.lender.trim(),
+        balance: parseFloat(form.balance) || 0,
+        originalAmount: parseFloat(form.originalAmount) || 0,
+        monthlyPayment: parseFloat(form.monthlyPayment) || 0,
+        interestRate: parseFloat(form.interestRate) || 0,
+        dueDate: form.dueDate.trim(),
+        notes: form.notes.trim(),
+      };
+      await addDebt(userId, debtData);
+      await loadDebts(userId);
+      setModalVisible(false);
       resetForm();
+      Alert.alert('¡Listo!', 'Deuda agregada exitosamente.');
     } catch (error) {
       Alert.alert('Error', 'No se pudo guardar la deuda. Intenta de nuevo.');
     } finally {
@@ -120,27 +194,22 @@ const DebtsScreen = () => {
     }
   };
 
-  const handleDelete = (debtId, debtName) => {
-    Alert.alert(
-      'Eliminar deuda',
-      `¿Deseas eliminar "${debtName}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const user = getCurrentUser();
-              await deleteDebt(user.uid, debtId);
-              await loadDebts();
-            } catch {
-              Alert.alert('Error', 'No se pudo eliminar la deuda.');
-            }
-          },
+  const handleDelete = (debtId) => {
+    Alert.alert('Eliminar deuda', '¿Estás seguro que deseas eliminar esta deuda?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteDebt(userId, debtId);
+            setDebts(prev => prev.filter(d => d.id !== debtId));
+          } catch {
+            Alert.alert('Error', 'No se pudo eliminar la deuda.');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const summary = getDebtSummary(debts);
@@ -151,252 +220,186 @@ const DebtsScreen = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
+      {/* Resumen de deudas */}
+      <View style={styles.summaryBanner}>
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>Total adeudado</Text>
+          <Text style={[styles.summaryValue, { color: Colors.error }]}>
+            {formatCurrency(summary.totalOwed)}
+          </Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>Pago mensual</Text>
+          <Text style={[styles.summaryValue, { color: Colors.primary }]}>
+            {formatCurrency(summary.totalMonthly)}
+          </Text>
+        </View>
+        <View style={styles.summaryDivider} />
+        <View style={styles.summaryItem}>
+          <Text style={styles.summaryLabel}>Deudas activas</Text>
+          <Text style={styles.summaryValue}>{summary.count}</Text>
+        </View>
+      </View>
+
+      <FlatList
+        data={debts}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => <DebtCard debt={item} onDelete={handleDelete} />}
+        contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary]} tintColor={Colors.primary} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.primary]}
+            tintColor={Colors.primary}
+          />
         }
-      >
-        {/* Resumen de deudas */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryLabel}>Deuda Total Pendiente</Text>
-          <Text style={styles.summaryTotal}>{formatCurrency(summary.totalDebt)}</Text>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
-              <MaterialCommunityIcons name="cash-multiple" size={18} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.summaryItemLabel}>Pago mensual</Text>
-              <Text style={styles.summaryItemValue}>{formatCurrency(summary.totalMonthlyPayment)}</Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryItem}>
-              <MaterialCommunityIcons name="format-list-numbered" size={18} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.summaryItemLabel}>Total deudas</Text>
-              <Text style={styles.summaryItemValue}>{summary.count}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Encabezado lista */}
-        <View style={styles.listHeader}>
-          <Text style={styles.listTitle}>Mis Deudas</Text>
-          <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
-            <MaterialCommunityIcons name="plus" size={18} color={Colors.primary} />
-            <Text style={styles.addButtonText}>Agregar</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Lista de deudas */}
-        {debts.length === 0 ? (
+        ListEmptyComponent={() => (
           <View style={styles.emptyState}>
             <MaterialCommunityIcons name="cash-remove" size={72} color={Colors.textDisabled} />
             <Text style={styles.emptyTitle}>Sin deudas registradas</Text>
             <Text style={styles.emptySubtitle}>
-              Agrega tus préstamos de autos, hipotecas u otras deudas para hacer seguimiento
+              Agrega tus préstamos, hipotecas, autos u otras deudas para hacer seguimiento
             </Text>
-            <TouchableOpacity style={styles.emptyAddButton} onPress={() => setShowAddModal(true)}>
-              <Text style={styles.emptyAddButtonText}>+ Agregar Deuda</Text>
-            </TouchableOpacity>
           </View>
-        ) : (
-          debts.map(debt => {
-            const progress = debt.originalAmount > 0
-              ? Math.min(1 - (parseFloat(debt.remainingBalance) / parseFloat(debt.originalAmount)), 1)
-              : 0;
-            return (
-              <View key={debt.id} style={styles.debtCard}>
-                <View style={styles.debtCardHeader}>
-                  <View style={[styles.debtIcon, { backgroundColor: `${debt.typeColor || Colors.primary}20` }]}>
-                    <MaterialCommunityIcons
-                      name={debt.typeIcon || 'cash-multiple'}
-                      size={24}
-                      color={debt.typeColor || Colors.primary}
-                    />
-                  </View>
-                  <View style={styles.debtInfo}>
-                    <Text style={styles.debtName}>{debt.creditorName}</Text>
-                    <Text style={styles.debtType}>{debt.typeLabel}</Text>
-                  </View>
-                  <TouchableOpacity onPress={() => handleDelete(debt.id, debt.creditorName)}>
-                    <MaterialCommunityIcons name="trash-can-outline" size={20} color={Colors.error} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.debtAmounts}>
-                  <View style={styles.debtAmountItem}>
-                    <Text style={styles.debtAmountLabel}>Saldo pendiente</Text>
-                    <Text style={[styles.debtAmountValue, { color: Colors.error }]}>
-                      {formatCurrency(debt.remainingBalance)}
-                    </Text>
-                  </View>
-                  <View style={styles.debtAmountItem}>
-                    <Text style={styles.debtAmountLabel}>Pago mensual</Text>
-                    <Text style={styles.debtAmountValue}>{formatCurrency(debt.monthlyPayment)}</Text>
-                  </View>
-                  {parseFloat(debt.interestRate) > 0 && (
-                    <View style={styles.debtAmountItem}>
-                      <Text style={styles.debtAmountLabel}>Tasa</Text>
-                      <Text style={styles.debtAmountValue}>{debt.interestRate}%</Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Barra de progreso */}
-                {debt.originalAmount > 0 && (
-                  <View style={styles.progressContainer}>
-                    <View style={styles.progressBar}>
-                      <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-                    </View>
-                    <Text style={styles.progressText}>{(progress * 100).toFixed(0)}% pagado</Text>
-                  </View>
-                )}
-
-                {debt.dueDay ? (
-                  <Text style={styles.dueText}>
-                    <MaterialCommunityIcons name="calendar" size={12} color={Colors.textSecondary} />
-                    {' '}Vence el día {debt.dueDay} de cada mes
-                  </Text>
-                ) : null}
-
-                {debt.notes ? (
-                  <Text style={styles.notesText}>{debt.notes}</Text>
-                ) : null}
-              </View>
-            );
-          })
         )}
+      />
 
-        <View style={{ height: Spacing.xl }} />
-      </ScrollView>
+      {/* FAB para agregar */}
+      <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
+        <MaterialCommunityIcons name="plus" size={28} color={Colors.white} />
+      </TouchableOpacity>
 
-      {/* Modal para agregar deuda */}
-      <Modal visible={showAddModal} animationType="slide" presentationStyle="pageSheet">
-        <View style={styles.modalContainer}>
+      {/* Modal: Agregar deuda */}
+      <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Nueva Deuda</Text>
-            <TouchableOpacity onPress={() => { setShowAddModal(false); resetForm(); }}>
-              <MaterialCommunityIcons name="close" size={24} color={Colors.textPrimary} />
+            <TouchableOpacity onPress={() => { setModalVisible(false); resetForm(); }}>
+              <Text style={styles.modalCancel}>Cancelar</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Agregar Deuda</Text>
+            <TouchableOpacity onPress={handleSave} disabled={saving}>
+              <Text style={[styles.modalSave, saving && { opacity: 0.5 }]}>
+                {saving ? 'Guardando...' : 'Guardar'}
+              </Text>
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
             {/* Tipo de deuda */}
-            <Text style={styles.fieldLabel}>Tipo de Deuda</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: Spacing.md }}>
-              <View style={styles.typeRow}>
-                {DEBT_TYPES.map(type => (
-                  <TouchableOpacity
-                    key={type.id}
+            <Text style={styles.fieldLabel}>Tipo de deuda *</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeScroll}>
+              {DEBT_TYPES.map(t => (
+                <TouchableOpacity
+                  key={t.id}
+                  style={[
+                    styles.typeChip,
+                    form.type === t.id && { backgroundColor: t.color, borderColor: t.color },
+                  ]}
+                  onPress={() => setForm(f => ({ ...f, type: t.id }))}
+                >
+                  <MaterialCommunityIcons
+                    name={t.icon}
+                    size={16}
+                    color={form.type === t.id ? Colors.white : t.color}
+                  />
+                  <Text
                     style={[
-                      styles.typeChip,
-                      debtType === type.id && { backgroundColor: type.color, borderColor: type.color },
-                    ]}
-                    onPress={() => setDebtType(type.id)}
-                  >
-                    <MaterialCommunityIcons
-                      name={type.icon}
-                      size={16}
-                      color={debtType === type.id ? Colors.white : Colors.textSecondary}
-                    />
-                    <Text style={[
                       styles.typeChipText,
-                      debtType === type.id && { color: Colors.white },
-                    ]}>
-                      {type.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                      form.type === t.id && { color: Colors.white },
+                    ]}
+                  >
+                    {t.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </ScrollView>
 
-            <Text style={styles.fieldLabel}>Nombre del Acreedor / Institución *</Text>
+            <Text style={styles.fieldLabel}>Nombre de la deuda *</Text>
             <TextInput
               style={styles.input}
-              placeholder="ej. Toyota Financial, Chase Mortgage..."
+              placeholder="ej. Toyota Camry 2022, Hipoteca casa..."
               placeholderTextColor={Colors.textDisabled}
-              value={creditorName}
-              onChangeText={setCreditorName}
+              value={form.name}
+              onChangeText={v => setForm(f => ({ ...f, name: v }))}
             />
 
-            <Text style={styles.fieldLabel}>Saldo Pendiente *</Text>
+            <Text style={styles.fieldLabel}>Entidad / Prestamista</Text>
             <TextInput
               style={styles.input}
-              placeholder="0.00"
+              placeholder="ej. Toyota Financial, Chase Bank..."
               placeholderTextColor={Colors.textDisabled}
-              value={remainingBalance}
-              onChangeText={setRemainingBalance}
-              keyboardType="decimal-pad"
+              value={form.lender}
+              onChangeText={v => setForm(f => ({ ...f, lender: v }))}
             />
 
-            <Text style={styles.fieldLabel}>Monto Original del Préstamo</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="0.00"
-              placeholderTextColor={Colors.textDisabled}
-              value={originalAmount}
-              onChangeText={setOriginalAmount}
-              keyboardType="decimal-pad"
-            />
-
-            <Text style={styles.fieldLabel}>Pago Mensual *</Text>
+            <Text style={styles.fieldLabel}>Saldo pendiente * ($)</Text>
             <TextInput
               style={styles.input}
               placeholder="0.00"
               placeholderTextColor={Colors.textDisabled}
-              value={monthlyPayment}
-              onChangeText={setMonthlyPayment}
+              value={form.balance}
+              onChangeText={v => setForm(f => ({ ...f, balance: v }))}
               keyboardType="decimal-pad"
             />
 
-            <Text style={styles.fieldLabel}>Tasa de Interés Anual (%)</Text>
+            <Text style={styles.fieldLabel}>Monto original del préstamo ($)</Text>
             <TextInput
               style={styles.input}
               placeholder="0.00"
               placeholderTextColor={Colors.textDisabled}
-              value={interestRate}
-              onChangeText={setInterestRate}
+              value={form.originalAmount}
+              onChangeText={v => setForm(f => ({ ...f, originalAmount: v }))}
               keyboardType="decimal-pad"
             />
 
-            <Text style={styles.fieldLabel}>Día de Vencimiento (1-31)</Text>
+            <Text style={styles.fieldLabel}>Pago mensual ($)</Text>
             <TextInput
               style={styles.input}
-              placeholder="ej. 15"
+              placeholder="0.00"
               placeholderTextColor={Colors.textDisabled}
-              value={dueDay}
-              onChangeText={setDueDay}
-              keyboardType="numeric"
-              maxLength={2}
+              value={form.monthlyPayment}
+              onChangeText={v => setForm(f => ({ ...f, monthlyPayment: v }))}
+              keyboardType="decimal-pad"
             />
 
-            <Text style={styles.fieldLabel}>Notas (opcional)</Text>
+            <Text style={styles.fieldLabel}>Tasa de interés (%)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="ej. 6.5"
+              placeholderTextColor={Colors.textDisabled}
+              value={form.interestRate}
+              onChangeText={v => setForm(f => ({ ...f, interestRate: v }))}
+              keyboardType="decimal-pad"
+            />
+
+            <Text style={styles.fieldLabel}>Fecha próximo pago (YYYY-MM-DD)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="2024-02-01"
+              placeholderTextColor={Colors.textDisabled}
+              value={form.dueDate}
+              onChangeText={v => setForm(f => ({ ...f, dueDate: v }))}
+            />
+
+            <Text style={styles.fieldLabel}>Notas</Text>
             <TextInput
               style={[styles.input, styles.notesInput]}
               placeholder="Información adicional..."
               placeholderTextColor={Colors.textDisabled}
-              value={notes}
-              onChangeText={setNotes}
+              value={form.notes}
+              onChangeText={v => setForm(f => ({ ...f, notes: v }))}
               multiline
               numberOfLines={3}
             />
 
-            <TouchableOpacity
-              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-              onPress={handleSaveDebt}
-              disabled={saving}
-            >
-              {saving ? (
-                <Text style={styles.saveButtonText}>Guardando...</Text>
-              ) : (
-                <>
-                  <MaterialCommunityIcons name="content-save" size={20} color={Colors.white} />
-                  <Text style={styles.saveButtonText}>Guardar Deuda</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            <View style={{ height: Spacing.xxl }} />
+            <View style={{ height: 40 }} />
           </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -407,41 +410,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  summaryCard: {
-    backgroundColor: Colors.secondary,
-    padding: Spacing.xl,
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  summaryTotal: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: Colors.primary,
-    marginBottom: Spacing.lg,
-  },
-  summaryRow: {
+  summaryBanner: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    width: '100%',
+    backgroundColor: Colors.secondary,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
   },
   summaryItem: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
   },
-  summaryItemLabel: {
-    fontSize: 12,
+  summaryLabel: {
+    fontSize: 11,
     color: 'rgba(255,255,255,0.7)',
+    marginBottom: 4,
   },
-  summaryItemValue: {
+  summaryValue: {
     fontSize: 15,
     fontWeight: 'bold',
     color: Colors.white,
@@ -449,37 +433,113 @@ const styles = StyleSheet.create({
   summaryDivider: {
     width: 1,
     backgroundColor: 'rgba(255,255,255,0.2)',
-    marginHorizontal: Spacing.md,
+    marginVertical: 4,
   },
-  listHeader: {
+  listContent: {
+    padding: Spacing.md,
+    paddingBottom: 90,
+  },
+  debtCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  debtCardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
+    marginBottom: Spacing.md,
   },
-  listTitle: {
-    fontSize: 17,
+  debtIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: Spacing.md,
+  },
+  debtInfo: {
+    flex: 1,
+  },
+  debtName: {
+    fontSize: 16,
     fontWeight: '700',
     color: Colors.textPrimary,
   },
-  addButton: {
+  debtType: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  debtLender: {
+    fontSize: 12,
+    color: Colors.primary,
+    marginTop: 1,
+  },
+  deleteBtn: {
+    padding: 6,
+  },
+  debtNumbers: {
+    flexDirection: 'row',
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  debtNumberItem: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    alignItems: 'center',
+  },
+  debtNumberLabel: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginBottom: 3,
+  },
+  debtNumberValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  progressContainer: {
+    marginBottom: Spacing.sm,
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: Colors.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  progressLabel: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+  },
+  dueDateRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: `${Colors.primary}18`,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.round,
     gap: 4,
+    marginTop: 4,
   },
-  addButtonText: {
-    fontSize: 14,
-    color: Colors.primary,
-    fontWeight: '600',
+  dueDateText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
   },
   emptyState: {
     alignItems: 'center',
-    padding: Spacing.xxl,
+    paddingTop: 60,
+    paddingHorizontal: Spacing.xl,
   },
   emptyTitle: {
     fontSize: 18,
@@ -494,130 +554,52 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     lineHeight: 20,
   },
-  emptyAddButton: {
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    marginTop: Spacing.lg,
-  },
-  emptyAddButtonText: {
-    color: Colors.white,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  debtCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.xl,
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    padding: Spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  debtCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  debtIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: BorderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Spacing.md,
-  },
-  debtInfo: {
-    flex: 1,
-  },
-  debtName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  debtType: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: 2,
-  },
-  debtAmounts: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.sm,
-  },
-  debtAmountItem: {
-    alignItems: 'center',
-  },
-  debtAmountLabel: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    marginBottom: 2,
-  },
-  debtAmountValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  progressContainer: {
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: Colors.border,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: 4,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: Colors.primary,
-    borderRadius: 3,
-  },
-  progressText: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    textAlign: 'right',
-  },
-  dueText: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: Spacing.xs,
-  },
-  notesText: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    fontStyle: 'italic',
-    marginTop: Spacing.xs,
-  },
-  // Modal styles
-  modalContainer: {
-    flex: 1,
-    backgroundColor: Colors.background,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: Colors.secondary,
+    justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.xl,
+    paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  modalCancel: {
+    fontSize: 16,
+    color: Colors.error,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 17,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  modalSave: {
+    fontSize: 16,
     color: Colors.primary,
+    fontWeight: '700',
   },
   modalBody: {
     flex: 1,
-    padding: Spacing.md,
+    backgroundColor: Colors.background,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
   },
   fieldLabel: {
     fontSize: 14,
@@ -626,20 +608,19 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
     marginTop: Spacing.md,
   },
-  typeRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    paddingHorizontal: 2,
+  typeScroll: {
+    marginBottom: Spacing.xs,
   },
   typeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: BorderRadius.round,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 8,
     borderWidth: 1.5,
     borderColor: Colors.border,
-    gap: 6,
+    borderRadius: BorderRadius.round,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 7,
+    marginRight: Spacing.sm,
+    gap: 4,
     backgroundColor: Colors.surface,
   },
   typeChipText: {
@@ -660,29 +641,6 @@ const styles = StyleSheet.create({
   notesInput: {
     height: 80,
     textAlignVertical: 'top',
-  },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginTop: Spacing.lg,
-    gap: Spacing.sm,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: 'bold',
   },
 });
 
