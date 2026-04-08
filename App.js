@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, DefaultTheme } from 'react-native-paper';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AppNavigator from './navigation/AppNavigator';
 import { Colors } from './constants/Colors';
 
@@ -29,7 +30,11 @@ const theme = {
 
 export default function App() {
   return (
+<<<<<<< copilot/fix-app-connection-error
     // GestureHandlerRootView es requerido por react-native-gesture-handler (@react-navigation/stack)
+=======
+    // GestureHandlerRootView es requerido por @react-navigation/stack para soporte nativo de gestos
+>>>>>>> main
     <GestureHandlerRootView style={{ flex: 1 }}>
       {/* SafeAreaProvider maneja los márgenes para notch y barras del sistema */}
       <SafeAreaProvider>
