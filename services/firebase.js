@@ -1,8 +1,9 @@
 // Configuración de Firebase para Credit Tracker App
 
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const firebaseConfig = {
   apiKey: "AIzaSyAJOyzRAFXQHsBdyczxy8VH_SL7orSw4p0",
@@ -16,8 +17,21 @@ const firebaseConfig = {
 // Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 
+// Inicializar Auth con persistencia AsyncStorage para React Native
+// Si falla (ej. plataforma web donde AsyncStorage no está disponible), se usa getAuth() como fallback
+let auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+} catch (e) {
+  console.warn('initializeAuth con AsyncStorage no disponible, usando getAuth() como fallback:', e);
+  auth = getAuth(app);
+}
+
+export { auth };
+
 // Servicios de Firebase que usaremos
-export const auth = getAuth(app);        // Autenticación
 export const db = getFirestore(app);     // Base de datos Firestore
 
 export default app;

@@ -156,6 +156,40 @@ npm run android
 
 ## 🔧 Solución de Problemas Comunes
 
+### Error: "Could not connect to the server. exp://127.0.0.1:8081"
+
+Este es el error más frecuente al usar Expo Go desde un iPad/iPhone o emulador. Sigue este checklist:
+
+1. **Instalar dependencias primero** — Luego de clonar el repo, siempre ejecutar:
+   ```bash
+   npm install
+   ```
+   Si `node_modules/` no existe, Metro no puede arrancar.
+
+2. **Limpiar caché y levantar con LAN** — Usar red local (LAN) en vez de localhost:
+   ```bash
+   npx expo start --lan --clear
+   ```
+   Con `--lan`, Expo usa la IP real de tu computadora (ej. `192.168.x.x`) en lugar de `127.0.0.1`, lo que permite que dispositivos físicos (iPad, iPhone) se conecten.
+
+3. **Misma red Wi-Fi** — El iPad y la computadora deben estar en **la misma red Wi-Fi**. Las redes separadas (ej. 5GHz vs 2.4GHz) pueden bloquear la conexión.
+
+4. **Firewall del sistema** — Si hay un firewall activo (macOS, Windows), debe permitir conexiones en el puerto **8081 (TCP)**. En macOS, al ejecutar Metro por primera vez aparece un diálogo de permiso — hacer clic en **"Permitir"**.
+
+5. **Puerto 8081 ocupado** — Verificar si otro proceso usa el puerto:
+   ```bash
+   lsof -i :8081
+   # Si hay un proceso, terminarlo:
+   kill -9 <PID>
+   ```
+   Luego volver a ejecutar `npx expo start --clear`.
+
+6. **Alternativa — modo tunnel** — Si el LAN sigue fallando, usar ngrok tunnel (requiere cuenta gratuita en ngrok.com):
+   ```bash
+   npx expo start --tunnel --clear
+   ```
+   Esto funciona aunque el iPad esté en otra red.
+
 ### Error: "Firebase: No Firebase App '[DEFAULT]'"
 - Verifica que copiaste correctamente las credenciales en `services/firebase.js`
 - Asegúrate de haber reemplazado todos los valores placeholder (`TU_API_KEY_AQUI`)

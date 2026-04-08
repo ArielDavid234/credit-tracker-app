@@ -4,6 +4,7 @@
 
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider as PaperProvider, DefaultTheme } from 'react-native-paper';
 import AppNavigator from './navigation/AppNavigator';
@@ -28,15 +29,18 @@ const theme = {
 
 export default function App() {
   return (
-    // SafeAreaProvider maneja los márgenes para notch y barras del sistema
-    <SafeAreaProvider>
-      {/* PaperProvider proporciona componentes Material Design */}
-      <PaperProvider theme={theme}>
-        {/* Navegador principal que maneja autenticación y rutas */}
-        <AppNavigator />
-        {/* Barra de estado con estilo oscuro */}
-        <StatusBar style="light" />
-      </PaperProvider>
-    </SafeAreaProvider>
+    // GestureHandlerRootView es requerido por react-native-gesture-handler (@react-navigation/stack)
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      {/* SafeAreaProvider maneja los márgenes para notch y barras del sistema */}
+      <SafeAreaProvider>
+        {/* PaperProvider proporciona componentes Material Design */}
+        <PaperProvider theme={theme}>
+          {/* Navegador principal que maneja autenticación y rutas */}
+          <AppNavigator />
+          {/* Barra de estado con estilo oscuro */}
+          <StatusBar style="light" />
+        </PaperProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
