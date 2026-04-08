@@ -15,7 +15,6 @@
     "assetBundlePatterns": [
       "**/*"
     ],
-    "platforms": ["ios", "android", "web"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.arieldavid234.credittracker"
