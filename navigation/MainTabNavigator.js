@@ -17,8 +17,10 @@ import ProfileScreen from '../screens/ProfileScreen';
 
 // Pantallas adicionales (accesibles desde las pestañas)
 import AddAccountScreen from '../screens/AddAccountScreen';
+import AddDebtScreen from '../screens/AddDebtScreen';
 import TransactionsScreen from '../screens/TransactionsScreen';
 import AddTransactionScreen from '../screens/AddTransactionScreen';
+import AddDebtScreen from '../screens/AddDebtScreen';
 
 // Colores
 import { Colors } from '../constants/Colors';
@@ -97,6 +99,11 @@ const DebtsStack = () => (
       name="DebtsMain"
       component={DebtsScreen}
       options={{ title: 'Mis Deudas' }}
+    />
+    <Stack.Screen
+      name="AddDebt"
+      component={AddDebtScreen}
+      options={{ title: 'Agregar Deuda' }}
     />
   </Stack.Navigator>
 );
