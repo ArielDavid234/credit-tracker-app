@@ -20,7 +20,6 @@ import AddAccountScreen from '../screens/AddAccountScreen';
 import AddDebtScreen from '../screens/AddDebtScreen';
 import TransactionsScreen from '../screens/TransactionsScreen';
 import AddTransactionScreen from '../screens/AddTransactionScreen';
-import AddDebtScreen from '../screens/AddDebtScreen';
 
 // Colores
 import { Colors } from '../constants/Colors';
