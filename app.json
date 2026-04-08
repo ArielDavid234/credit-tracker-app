@@ -11,6 +11,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#2C2C2E"
     },
+    "platforms": ["ios", "android", "web"],
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -27,9 +28,8 @@
       "package": "com.arieldavid234.credittracker"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "platforms": ["ios", "android", "web"],
-    "plugins": []
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    }
   }
 }
