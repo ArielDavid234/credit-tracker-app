@@ -4,6 +4,60 @@ Esta guía te explica paso a paso cómo configurar Firebase y Plaid para que la 
 
 ---
 
+## 🚀 Inicio Rápido — Cómo Levantar la App (Paso a Paso para Principiantes)
+
+> **¿Por qué mi app no arranca con `npx expo start`?**
+> El motivo más frecuente es uno de estos tres problemas (están ordenados del más al menos común):
+
+### ✅ Paso 1: Instalar dependencias (OBLIGATORIO antes del primer arranque)
+
+Después de clonar el repositorio, **siempre** debes instalar las dependencias. Sin este paso, la app no puede correr:
+
+```bash
+cd credit-tracker-app
+npm install
+```
+
+Espera hasta que termine (puede tardar 1-3 minutos). Verás algo como `added 1200 packages`.
+
+### ✅ Paso 2: Levantar Expo con el modo correcto
+
+**Para ver la app en el navegador (Chrome, Safari, etc.):**
+
+```bash
+npx expo start --web
+```
+
+Esto abre automáticamente `http://localhost:19006` en tu navegador.
+
+**Para ver la app en iPad o iPhone (con Expo Go):**
+
+```bash
+npx expo start --lan --clear
+```
+
+> ⚠️ **Importante para iPad/iPhone:** Usa siempre `--lan` (no solo `npx expo start`). Sin `--lan`, Expo usa `127.0.0.1` (solo tu computadora) y el iPad no puede conectarse.
+
+### ✅ Paso 3: Conectar el iPad (con Expo Go)
+
+1. Instala **Expo Go** desde el App Store en tu iPad: [enlace directo](https://apps.apple.com/app/expo-go/id982107779)
+2. Asegúrate de que el iPad y tu computadora estén en **la misma red Wi-Fi**
+3. Ejecuta `npx expo start --lan --clear` en la terminal
+4. Escanea el código QR que aparece en la terminal con la **cámara del iPad** (o desde la app Expo Go en iOS 16+)
+5. La app abrirá automáticamente en Expo Go
+
+### ❌ Errores más comunes y sus soluciones
+
+| Error | Causa | Solución |
+|-------|-------|----------|
+| `Cannot find module 'expo/AppEntry'` | No se ejecutó `npm install` | Ejecutar `npm install` primero |
+| `exp://127.0.0.1:8081` no conecta en iPad | Usando localhost en vez de LAN | Usar `npx expo start --lan --clear` |
+| `Network response timed out` en iPad | iPad y PC en redes distintas | Conectar ambos al mismo Wi-Fi |
+| Puerto 8081 ocupado | Otro proceso usa ese puerto | Ejecutar `npx expo start --port 8082` |
+| App en blanco / pantalla negra | Caché de Metro corrupta | Ejecutar `npx expo start --clear` |
+
+---
+
 ## 🔥 Configuración de Firebase
 
 Firebase te da autenticación y base de datos **gratis** con el plan Spark.
