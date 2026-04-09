@@ -91,17 +91,21 @@ export const plaidConfig = {
 ### Paso 5: Ejecutar la aplicación
 
 ```bash
-# Iniciar el servidor de desarrollo
-npm start
+# Para ver la app en el NAVEGADOR (Chrome, Safari, etc.)
+npx expo start --web
 
-# Para iOS específicamente
-npm run ios
+# Para ver la app en iPad o iPhone con Expo Go
+npx expo start --lan --clear
 
-# Para Android específicamente
-npm run android
+# Para limpiar caché si algo falla
+npx expo start --clear
 ```
 
-Luego escanea el código QR con la app **Expo Go** en tu teléfono.
+> ⚠️ **Para iPad/iPhone:** Usa SIEMPRE `--lan`. Sin este flag, Expo usa `127.0.0.1`
+> (que solo funciona en tu computadora) y el dispositivo físico no puede conectarse.
+> Además, el iPad y la computadora deben estar en **la misma red Wi-Fi**.
+
+Luego escanea el código QR con la app **Expo Go** en tu iPad o iPhone.
 
 ## 📱 Cómo Usar la App
 
