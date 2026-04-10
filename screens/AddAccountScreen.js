@@ -99,7 +99,8 @@ const AddAccountScreen = ({ navigation }) => {
           creditLimit: parseFloat(creditLimit) || 0,
           availableCredit: (parseFloat(creditLimit) || 0) - (parseFloat(balance) || 0),
           dueDate: dueDate || null,
-          minimumPayment: 0,
+          minimumPayment: parseFloat(minimumPayment) || 0,
+          interestRate: parseFloat(interestRate) || 0,
           type: 'credit',
         });
       } else {
