@@ -159,7 +159,7 @@ const CreditCardsScreen = ({ navigation }) => {
             </Text>
             <TouchableOpacity
               style={styles.emptyButton}
-              onPress={() => navigation.navigate('Dashboard', { screen: 'AddAccount' })}
+              onPress={() => navigation.navigate('AddAccount')}
             >
               <Text style={styles.emptyButtonText}>+ Agregar Tarjeta</Text>
             </TouchableOpacity>

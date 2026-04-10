@@ -1,6 +1,62 @@
 # 💳 Credit Tracker App
 
-Aplicación móvil para **iOS y Android** que permite monitorear todas tus tarjetas de crédito y cuentas bancarias en un solo lugar.
+Aplicación móvil para **iOS, Android y Web** que permite monitorear todas tus tarjetas de crédito y cuentas bancarias en un solo lugar.
+
+---
+
+## ⚡ INICIO RÁPIDO — Principiantes (leer primero)
+
+> Si la app no abre, sigue estos 3 pasos en orden. Son obligatorios cada vez que clonas el proyecto.
+
+### Paso 1 — Instalar dependencias (OBLIGATORIO)
+
+Abre una terminal en la carpeta del proyecto y ejecuta:
+
+```bash
+npm install
+```
+
+Espera hasta que termine (1-3 minutos). Verás `added XXXX packages` al final.
+
+> ❗ **Sin este paso, la app no puede correr.** La carpeta `node_modules/` no se sube a GitHub — siempre hay que instalarla después de clonar.
+
+### Paso 2 — Levantar la app
+
+**Para abrir en el navegador (Chrome, Safari, etc.):**
+
+```bash
+npx expo start --web
+```
+
+Esto abre automáticamente `http://localhost:8081` en tu navegador.
+
+**Para abrir en iPad/iPhone con Expo Go:**
+
+```bash
+npx expo start --lan --clear
+```
+
+> ⚠️ En iPad/iPhone usa SIEMPRE `--lan`. Sin ese flag, el dispositivo no puede conectarse porque Expo usa `127.0.0.1` (solo funciona en tu computadora). El iPad y la PC deben estar en **la misma red Wi-Fi**.
+
+### Paso 3 — Conectar el iPad (opcional)
+
+1. Instala **Expo Go** desde el App Store en el iPad
+2. Ejecuta `npx expo start --lan --clear` en la terminal
+3. Escanea el código QR con la cámara del iPad (o desde Expo Go)
+
+### ❌ Errores comunes y soluciones rápidas
+
+| Error | Causa | Solución |
+|-------|-------|----------|
+| `Cannot find module 'expo/AppEntry'` | Falta `npm install` | Ejecutar `npm install` |
+| `exp://127.0.0.1:8081` no conecta en iPad | Falta `--lan` | Usar `npx expo start --lan --clear` |
+| `Network response timed out` en iPad | Redes Wi-Fi distintas | Conectar iPad y PC al mismo Wi-Fi |
+| Puerto 8081 ocupado | Otro proceso usa ese puerto | Ejecutar `npx expo start --port 8082` |
+| Pantalla en blanco / app cuelga | Caché de Metro corrupto | Ejecutar `npx expo start --clear` |
+| `Firebase: No Firebase App '[DEFAULT]'` | Credenciales Firebase incorrectas | Verificar `services/firebase.js` |
+| `auth/configuration-not-found` | Email/Password no activado | Activar en Firebase Console → Authentication |
+
+---
 
 ## 🚀 Características
 
